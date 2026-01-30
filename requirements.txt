@@ -1,7 +1,9 @@
 fastapi>=0.110
 uvicorn>=0.23
 pydantic
+pydantic[email]
 pydantic-settings
+email-validator
 sqlalchemy>=2.0
 alembic
 psycopg2-binary
@@ -22,4 +24,5 @@ pillow
 tabulate
 schedule
 gunicorn
+
 
