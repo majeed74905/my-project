@@ -1,0 +1,109 @@
+
+/* Base Transition */
+body {
+  transition: background-color 0.3s ease, color 0.3s ease;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+}
+
+/* 
+  We define variables for each theme class.
+  These map directly to the colors in our themes.ts
+*/
+
+/* Light (Default) */
+:root, .theme-light {
+  --bg-color: #F3F4F6;
+  --surface-color: #FFFFFF;
+  --surface-highlight: #F9FAFB;
+  --text-main: #030712;
+  --text-sub: #4B5563;
+  --primary: #8B5CF6;
+  --primary-dark: #7C3AED;
+  --accent: #D946EF;
+  --border-color: rgba(0, 0, 0, 0.1);
+}
+
+.theme-dark {
+  --bg-color: #09090B;
+  --surface-color: #18181B;
+  --surface-highlight: #27272A;
+  --text-main: #FAFAFA;
+  --text-sub: #A1A1AA;
+  --primary: #8B5CF6;
+  --primary-dark: #7C3AED;
+  --accent: #D946EF;
+  --border-color: rgba(255, 255, 255, 0.15);
+}
+
+.theme-aurora {
+  --bg-color: #0F172A;
+  --surface-color: #1E293B;
+  --surface-highlight: #334155;
+  --text-main: #F8FAFC;
+  --text-sub: #94A3B8;
+  --primary: #818CF8;
+  --primary-dark: #6366F1;
+  --accent: #2DD4BF;
+  --border-color: rgba(148, 163, 184, 0.2);
+}
+
+.theme-glass {
+  --bg-color: #E0F2FE;
+  --surface-color: rgba(255, 255, 255, 0.65);
+  --surface-highlight: rgba(255, 255, 255, 0.8);
+  --text-main: #0C4A6E;
+  --text-sub: #0369A1;
+  --primary: #0EA5E9;
+  --primary-dark: #0284C7;
+  --accent: #F472B6;
+  --border-color: rgba(255, 255, 255, 0.5);
+}
+
+.theme-midnight {
+  --bg-color: #020617;
+  --surface-color: #0F172A;
+  --surface-highlight: #1E293B;
+  --text-main: #E2E8F0;
+  --text-sub: #64748B;
+  --primary: #38BDF8;
+  --primary-dark: #0284C7;
+  --accent: #FB7185;
+  --border-color: rgba(30, 41, 59, 0.5);
+}
+
+.theme-solarizedDark {
+  --bg-color: #002b36;
+  --surface-color: #073642;
+  --surface-highlight: #586e75;
+  --text-main: #fdf6e3;
+  --text-sub: #839496;
+  --primary: #2aa198;
+  --primary-dark: #268bd2;
+  --accent: #d33682;
+  --border-color: rgba(88, 110, 117, 0.3);
+}
+
+.theme-royal {
+  --bg-color: #1a0b2e;
+  --surface-color: #2d1b4e;
+  --surface-highlight: #43237a;
+  --text-main: #fae8ff;
+  --text-sub: #d8b4fe;
+  --primary: #fbbf24;
+  --primary-dark: #d97706;
+  --accent: #f472b6;
+  --border-color: rgba(251, 191, 36, 0.15);
+}
+
+.theme-pastel {
+  --bg-color: #fdf2f8;
+  --surface-color: #fff1f2;
+  --surface-highlight: #ffe4e6;
+  --text-main: #881337;
+  --text-sub: #9f1239;
+  --primary: #f43f5e;
+  --primary-dark: #e11d48;
+  --accent: #14b8a6;
+  --border-color: rgba(244, 63, 94, 0.1);
+}

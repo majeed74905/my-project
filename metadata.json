@@ -1,0 +1,8 @@
+{
+  "name": "Zara AI - Pro GenAI Workspace",
+  "description": "The ultimate AI assistant featuring Real-time Voice, Veo Video Generation, App Building, Academic Tutoring, LifeOS, SkillOS, and Advanced Code Analysis powered by Google Gemini.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ]
+}

@@ -1,0 +1,196 @@
+
+<!DOCTYPE html>
+<html lang="en" class="theme-dark dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- Primary Meta Tags -->
+    <title>Zara AI - Pro GenAI Workspace & Multi-Modal Assistant</title>
+    <meta name="title" content="Zara AI - Pro GenAI Workspace & Multi-Modal Assistant">
+    <meta name="description" content="Zara AI is a professional GenAI workspace for app building, real-time voice, and academic mastery. Developed by Mohammed Majeed.">
+    <meta name="keywords" content="Zara AI, Google Gemini, AI Assistant, App Builder, AI Tutor, Text to Video, Mohammed Majeed, GenAI Workspace, AI OS, Code Architect">
+    <meta name="author" content="Mohammed Majeed">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#8B5CF6">
+    
+    <!-- Resource Hints -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://aistudiocdn.com">
+    
+    <!-- Canonical Link -->
+    <link rel="canonical" href="https://zara-ai-assist.netlify.app/" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://zara-ai-assist.netlify.app/">
+    <meta property="og:title" content="Zara AI - Pro GenAI Workspace">
+    <meta property="og:description" content="Build apps, generate videos, and master any subject with Zara AI. Developed by Mohammed Majeed.">
+    <meta property="og:image" content="https://zara-ai-assist.netlify.app/favicon.svg">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://zara-ai-assist.netlify.app/">
+    <meta name="twitter:title" content="Zara AI - Pro GenAI Workspace">
+    <meta name="twitter:description" content="Experience the future of AI. Build apps and generate videos with Zara AI's unified multi-modal system.">
+    <meta name="twitter:image" content="https://zara-ai-assist.netlify.app/favicon.svg">
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    [
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Zara AI",
+        "alternateName": ["Zara AI Workspace", "Zara AI Pro"],
+        "url": "https://zara-ai-assist.netlify.app/"
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Zara AI",
+        "operatingSystem": "Web",
+        "applicationCategory": "ProductivityApplication",
+        "description": "Professional GenAI workspace featuring real-time voice, video, and app building.",
+        "author": {
+          "@type": "Person",
+          "name": "Mohammed Majeed"
+        }
+      }
+    ]
+    </script>
+
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="shortcut icon" href="/favicon.svg">
+    <link rel="apple-touch-icon" href="/favicon.svg">
+    <link rel="manifest" href="manifest.json">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              background: 'var(--bg-color)', 
+              surface: 'var(--surface-color)',
+              surfaceHighlight: 'var(--surface-highlight)',
+              primary: 'var(--primary)', 
+              'primary-dark': 'var(--primary-dark)',
+              text: 'var(--text-main)',
+              'text-sub': 'var(--text-sub)',
+              accent: 'var(--accent)', 
+              border: 'var(--border-color)',
+              studio: {
+                bg: '#0f0518',
+                panel: '#1a0b2e',
+                border: '#3b2164'
+              }
+            },
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+            },
+            animation: {
+              'fade-in': 'fadeIn 0.5s ease-out',
+              'slide-up': 'slideUp 0.5s ease-out',
+              'scale-in': 'scaleIn 0.3s ease-out',
+              'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'shimmer': 'shimmer 2s linear infinite',
+              'flip-3d': 'flip3d 1s forwards'
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              slideUp: {
+                '0%': { transform: 'translateY(20px)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' },
+              },
+              scaleIn: {
+                '0%': { transform: 'scale(0.9)', opacity: '0' },
+                '100%': { transform: 'scale(1)', opacity: '1' },
+              },
+              shimmer: {
+                '0%': { transform: 'translateX(-100%)' },
+                '100%': { transform: 'translateX(100%)' }
+              },
+              flip3d: {
+                '0%': { transform: 'rotateY(0deg)' },
+                '50%': { transform: 'rotateY(180deg)', opacity: '0.5' },
+                '100%': { transform: 'rotateY(360deg)', opacity: '1' }
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <style>
+      /* Critical CSS & Fixes */
+      :root {
+        --bg-color: #09090B;
+        --surface-color: #18181B;
+        --text-main: #FAFAFA;
+        --primary: #8B5CF6;
+      }
+      body { 
+        background-color: var(--bg-color); 
+        color: var(--text-main); 
+        font-family: 'Inter', sans-serif; 
+      }
+      
+      /* Ensure inputs and textareas always use the theme text color */
+      input, textarea, select {
+        color: var(--text-main);
+      }
+      
+      /* Fix for invisible markdown letters */
+      .markdown-body {
+        color: var(--text-main);
+      }
+      .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4, .markdown-body strong {
+        color: #FFFFFF;
+      }
+      .markdown-body p, .markdown-body li {
+        color: var(--text-sub);
+      }
+
+      .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+      .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+      .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--surface-highlight); border-radius: 10px; }
+      .glass-panel { background: var(--surface); border: 1px solid var(--border-color); backdrop-filter: blur(12px); }
+    </style>
+    <script type="importmap">
+    {
+      "imports": {
+        "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
+        "react/": "https://aistudiocdn.com/react@^19.2.1/",
+        "react": "https://aistudiocdn.com/react@^19.2.1",
+        "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+        "react-markdown": "https://aistudiocdn.com/react-markdown@^10.1.0",
+        "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+        "framer-motion": "https://aistudiocdn.com/framer-motion@^11.1.7",
+        "mermaid": "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs",
+        "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+        "vite": "https://esm.sh/vite@^7.3.0"
+      }
+    }
+    </script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root">
+      <!-- LCP Skeleton -->
+      <div style="height: 100vh; display: flex; align-items: center; justify-content: center; background: #09090B;">
+        <div style="width: 48px; height: 48px; border: 4px solid #8B5CF6; border-top-color: transparent; border-radius: 50%; animate: spin 1s linear infinite;"></div>
+      </div>
+    </div>
+    <script type="module" src="/index.tsx"></script>
+    <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+  </body>
+</html>
