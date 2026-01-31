@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     # API Keys
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
+    GOOGLE_CALLBACK_URL: Optional[str] = None
+    FRONTEND_URL: str = "http://localhost:3000"
     
     # Use field aliases or post-init to ensure GEMINI/GOOGLE/API_KEY are bridged
     GOOGLE_API_KEY: Optional[str] = None
@@ -31,6 +33,9 @@ class Settings(BaseSettings):
     GROQ_API_KEY: Optional[str] = None
     DEEPSEEK_API_KEY: Optional[str] = None
     STABILITY_API_KEY: Optional[str] = None
+
+    # SMTP Secure flag
+    SMTP_SECURE: bool = False
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

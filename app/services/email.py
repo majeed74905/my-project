@@ -15,9 +15,13 @@ def send_email(to_email: str, subject: str, body: str):
     msg.attach(MIMEText(body, 'html'))
 
     try:
-        print(f"DEBUG: Connecting to {settings.SMTP_SERVER}:{settings.SMTP_PORT}...")
-        server = smtplib.SMTP(settings.SMTP_SERVER, settings.SMTP_PORT, timeout=15)
-        server.starttls()
+        print(f"DEBUG: Connecting to {settings.SMTP_SERVER}:{settings.SMTP_PORT} (Secure: {settings.SMTP_SECURE})...")
+        if settings.SMTP_SECURE:
+            server = smtplib.SMTP_SSL(settings.SMTP_SERVER, settings.SMTP_PORT, timeout=15)
+        else:
+            server = smtplib.SMTP(settings.SMTP_SERVER, settings.SMTP_PORT, timeout=15)
+            server.starttls()
+            
         print(f"DEBUG: Logging in as {settings.SMTP_USER}...")
         server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
         server.sendmail(settings.EMAILS_FROM_EMAIL, to_email, msg.as_string())
