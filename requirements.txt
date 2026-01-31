@@ -1,5 +1,6 @@
 fastapi>=0.110
-uvicorn>=0.23
+uvicorn[standard]>=0.23.0
+gunicorn>=21.2.0
 pydantic
 pydantic[email]
 pydantic-settings
@@ -23,3 +24,4 @@ pypdf
 pillow
 tabulate
 schedule
+waitress
