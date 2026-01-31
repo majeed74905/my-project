@@ -263,7 +263,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
 
                                 <button
                                     type="button"
-                                    onClick={() => googleLogin()}
+                                    onClick={() => authService.redirectToGoogle()}
                                     disabled={isLoading}
                                     className="w-full bg-white text-gray-900 font-bold py-3.5 rounded-xl transition-all hover:bg-gray-100 flex items-center justify-center gap-3 disabled:opacity-50 shadow-xl"
                                 >

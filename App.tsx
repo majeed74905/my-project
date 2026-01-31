@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense, lazy } from 'react';
 import { Sparkles, BookOpen, Heart, Code2, Palette, WifiOff, Globe, Search, ChevronDown, Brain, Upload, FileText, File, Menu, X, Loader2, Activity, Eye, EyeOff } from 'lucide-react';
 import { Message, Role, Attachment, ViewMode, ChatConfig, PersonalizationConfig, Persona } from './types';
-import { sendMessageToGeminiStream } from './services/geminiRest';
+import { sendMessageToGeminiStream } from './services/gemini';
 import { OfflineService } from './services/offlineService';
 import { securityService } from './services/securityService';
 import { authService } from './services/authService';
@@ -90,10 +90,22 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
+    // Check for OAuth token in URL (from Backend Redirect)
+    const urlParams = new URLSearchParams(window.location.search);
+    const tokenFromUrl = urlParams.get('token');
+    const emailFromUrl = urlParams.get('email');
+
+    if (tokenFromUrl) {
+      handleLoginSuccess(tokenFromUrl, emailFromUrl || "Google User");
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  useEffect(() => {
     const token = localStorage.getItem('auth_token');
     const email = localStorage.getItem('auth_email');
     if (token) {
-      // If we have an email, set it immediately for UI responsiveness, then fetch full profile
       if (email) setCurrentUser({ email });
       fetchUserProfile(token);
     }
@@ -249,7 +261,7 @@ const App: React.FC = () => {
         }
       }
 
-      const { text: finalText, sources, interactions } = await sendMessageToGeminiStream(
+      const { text: finalText, sources } = await sendMessageToGeminiStream(
         historyToUse, text, attachments, chatConfig, personalization,
         (partial) => {
           if (abortRef.current) return;
@@ -260,7 +272,7 @@ const App: React.FC = () => {
       );
 
       if (abortRef.current) return;
-      const finalBotMsg = { ...initialBotMsg, text: finalText, sources, interactions, isStreaming: false };
+      const finalBotMsg = { ...initialBotMsg, text: finalText, sources, isStreaming: false };
       const finalMessages = [...msgsWithUser, finalBotMsg];
       setMessages(finalMessages);
       if (currentSessionId) updateSession(currentSessionId, finalMessages); else createSession(finalMessages);

@@ -1,13 +1,7 @@
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1';
-
-export interface AnalysisResult {
-    results: any[];
-    context_text: string;
-}
+const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 export const analysisService = {
-    async analyzeFiles(files: File[]): Promise<AnalysisResult> {
+    async analyzeFiles(files: File[]): Promise<{ context_text: string; results: any[] }> {
         const formData = new FormData();
         files.forEach(file => {
             formData.append('files', file);
@@ -15,12 +9,11 @@ export const analysisService = {
 
         const response = await fetch(`${API_URL}/analysis/analyze_files`, {
             method: 'POST',
-            body: formData, // Fetch automatically sets Content-Type to multipart/form-data
+            body: formData,
         });
 
         if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.detail || 'Analysis failed');
+            throw new Error(`File analysis failed: ${response.statusText}`);
         }
 
         return response.json();

@@ -1,7 +1,7 @@
 
 import { UserCreate, UserLogin, OTPVerify, ResendOTP } from '../types';
 
-const API_URL = 'http://localhost:8000/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 export const authService = {
     async register(data: UserCreate) {
@@ -99,6 +99,10 @@ export const authService = {
             throw new Error(error.detail || 'Google Login failed');
         }
         return response.json() as Promise<{ access_token: string; token_type: string; email?: string }>;
+    },
+
+    redirectToGoogle() {
+        window.location.href = `${API_URL}/auth/google/login`;
     },
 
     async setPrivacyMode(isEnabled: boolean) {
