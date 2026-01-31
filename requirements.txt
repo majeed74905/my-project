@@ -23,4 +23,3 @@ pypdf
 pillow
 tabulate
 schedule
-gunicorn
