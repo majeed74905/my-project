@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
     GOOGLE_CALLBACK_URL: Optional[str] = None
-    FRONTEND_URL: str = "http://localhost:3000"
+    FRONTEND_URL: str = "https://zara-ai-assists.netlify.app/"
     
     # Use field aliases or post-init to ensure GEMINI/GOOGLE/API_KEY are bridged
     GOOGLE_API_KEY: Optional[str] = None
@@ -33,6 +33,17 @@ class Settings(BaseSettings):
     GROQ_API_KEY: Optional[str] = None
     DEEPSEEK_API_KEY: Optional[str] = None
     STABILITY_API_KEY: Optional[str] = None
+
+    # Email Providers
+    RESEND_API_KEY: Optional[str] = None
+    
+    BREVO_SMTP_HOST: str = "smtp-relay.brevo.com"
+    BREVO_SMTP_PORT: int = 587
+    BREVO_SMTP_USER: Optional[str] = None
+    BREVO_SMTP_PASS: Optional[str] = None
+
+    # Common
+    BACKEND_URL: Optional[str] = None
 
     # SMTP Secure flag
     SMTP_SECURE: bool = False
