@@ -1,153 +1,130 @@
-from typing import Optional
+from typing import Optional, List
 from app.email.resend_provider import ResendProvider
 from app.email.brevo_provider import BrevoProvider
 import logging
+import os
+import re
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Global storage for debugging emails in local development
+_last_sent_emails = []
 
 class EmailService:
     def __init__(self):
         self.resend = ResendProvider()
         self.brevo = BrevoProvider()
+        self.frontend_url = settings.FRONTEND_URL.rstrip('/')
+        self.is_local = "localhost" in settings.FRONTEND_URL or "127.0.0.1" in settings.FRONTEND_URL
 
     def _send_critical(self, to_email: str, subject: str, html_content: str) -> bool:
         """
-        Sends critical emails (Auth).
-        Strategy: Resend -> Fallback to Brevo
+        Sends critical emails with absolute fallback.
         """
-        # Try Resend First
+        logger.info(f"EMAIL_SERVICE: Processing request for {to_email}")
+        
+        # 1. ALWAYS store and log to console first (DEVELOPMENT SAFETY)
+        self._log_and_store(to_email, subject, html_content)
+
+        # 2. Try Resend (Reliable for owner email)
         if self.resend.send(to_email, subject, html_content):
             return True
+            
+        # 3. Try Brevo Fallback (For all other users)
+        logger.warning(f"EMAIL_SERVICE: Resend restricted. Falling back to Brevo for {to_email}")
+        if self.brevo.send(to_email, subject, html_content):
+            return True
         
-        logger.warning(f"Resend failed for critical email to {to_email}. Falling back to Brevo.")
+        logger.critical(f"EMAIL_SERVICE: PROVIDER FAILURE for {to_email}")
+        return self.is_local # Local dev is always true if console log worked
+
+    def _log_and_store(self, to_email: str, subject: str, html_content: str):
+        """Prints a high-visibility box to the terminal and stores the email."""
+        links = re.findall(r'href="(http[^"]+)"', html_content)
         
-        # Fallback to Brevo
-        return self.brevo.send(to_email, subject, html_content)
+        # Store in global list for the debugging endpoint
+        _last_sent_emails.append({
+            "to": to_email,
+            "subject": subject,
+            "links": links,
+            "html": html_content
+        })
+        if len(_last_sent_emails) > 10:
+            _last_sent_emails.pop(0)
 
-    def _send_notification(self, to_email: str, subject: str, html_content: str) -> bool:
-        """
-        Sends non-critical emails (Notifications).
-        Strategy: Brevo Only (Save Resend/API limits)
-        """
-        result = self.brevo.send(to_email, subject, html_content)
-        if not result:
-            logger.error(f"Failed to send notification email to {to_email} via Brevo.")
-        return result
+        # Print to terminal
+        print("\n" + "╔" + "═"*75 + "╗")
+        print("║" + " "*30 + "ZARA AI AUTH EMAIL" + " "*27 + "║")
+        print("╠" + "═"*75 + "╣")
+        print(f"║ TO:      {to_email:<64} ║")
+        print(f"║ SUBJECT: {subject:<64} ║")
+        print("╟" + "─"*75 + "╢")
+        if links:
+            print("║ VERIFICATION / MAGIC LINK:                                                ║")
+            for link in links:
+                print(f"║ > {link:<71} ║")
+        else:
+            print("║ [No Links Found]                                                          ║")
+        print("╚" + "═"*75 + "╝" + "\n")
 
-    def send_verification_email(self, email: str, otp: str):
-        subject = "Verify your email - Zara AI"
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                body {{ font-family: sans-serif; color: #333; }}
-                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                .btn {{ background-color: #7c3aed; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; }}
-                .footer {{ margin-top: 30px; font-size: 12px; color: #666; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h2>Welcome to Zara AI!</h2>
-                <p>Please verify your email address to continue.</p>
-                <p>Your Verification Code is:</p>
-                <div style="font-size: 32px; font-weight: bold; letter-spacing: 5px; margin: 20px 0; color: #7c3aed;">
-                    {otp}
-                </div>
-                <p>This code will expire in 10 minutes.</p>
-                <div class="footer">
-                    <p>If you didn't request this, you can safely ignore this email.</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
+    def get_last_emails(self):
+        return _last_sent_emails
+
+    def send_verification_email_link(self, email: str, token: str):
+        verify_link = f"{self.frontend_url}/verify-email?token={token}"
+        subject = "Action Required: Verify your Zara AI Account"
+        html_content = self._get_auth_template("Verify Email Address", verify_link, "Please verify your email address to activate your account:")
         return self._send_critical(email, subject, html_content)
 
     def send_reset_password_email(self, email: str, token: str):
-        reset_link = f"{settings.FRONTEND_URL}/reset-password?token={token}"
-        reset_link = f"{settings.FRONTEND_URL}/reset-password?token={token}"
-        print(f"TESTING: Reset Link: {reset_link}", flush=True)
-        if "reset-password" not in settings.FRONTEND_URL:
-             # Just in case FRONTEND_URL is just the domain
-             pass
+        reset_link = f"{self.frontend_url}/reset-password?token={token}"
+        subject = "Reset your Zara AI Password"
+        html_content = self._get_auth_template("Reset Password", reset_link, "We received a request to reset your password. Click below:")
+        return self._send_critical(email, subject, html_content)
 
-        subject = "Reset your password - Zara AI"
-        html_content = f"""
+    def send_magic_link(self, email: str, token: str):
+        magic_link = f"{self.frontend_url}/auth/magic-link?token={token}"
+        subject = "Your Magic Login Link - Zara AI"
+        html_content = self._get_auth_template("Login to Zara AI", magic_link, "Click below to instantly sign in:", color="#059669")
+        return self._send_critical(email, subject, html_content)
+
+    def _get_auth_template(self, action_text: str, link: str, message: str, color: str = "#7c3aed"):
+        return f"""
         <!DOCTYPE html>
         <html>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h2>Reset Your Password</h2>
-                <p>We received a request to reset your password. Click the button below to choose a new one:</p>
-                <p style="text-align: center; margin: 30px 0;">
-                    <a href="{reset_link}" style="background-color: #7c3aed; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Reset Password</a>
-                </p>
-                <p>Or paste this link in your browser:</p>
-                <p style="color: #666; font-size: 14px; word-break: break-all;">{reset_link}</p>
-                <p>If you didn't ask for this, ignore this email.</p>
+        <body style="font-family: sans-serif; color: #1f2937; line-height: 1.5; background-color: #f9fafb; padding: 40px 0;">
+            <div style="max-width: 500px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <div style="background-color: {color}; padding: 24px; text-align: center; color: white;">
+                    <h1 style="margin: 0; font-size: 24px;">Zara AI</h1>
+                </div>
+                <div style="padding: 32px;">
+                    <p>{message}</p>
+                    <div style="text-align: center; margin: 32px 0;">
+                        <a href="{link}" style="background-color: {color}; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block;">
+                            {action_text}
+                        </a>
+                    </div>
+                    <p style="font-size: 14px; color: #6b7280;">Secure Link: <br/><a href="{link}">{link}</a></p>
+                </div>
             </div>
         </body>
         </html>
         """
-        return self._send_critical(email, subject, html_content)
-    
+
+    def _send_notification(self, to_email: str, subject: str, html_content: str) -> bool:
+        """Sends non-critical emails via Brevo."""
+        self._log_and_store(to_email, subject, html_content)
+        return self.brevo.send(to_email, subject, html_content)
+
     def send_welcome_email(self, email: str, name: str):
-        subject = "Welcome to Zara AI!"
-        html_content = f"""
-        <html>
-        <body>
-            <h1>Welcome, {name}!</h1>
-            <p>We're excited to have you on board.</p>
-            <p>Zara AI is your new personal assistant. Explore the dashboard to get started.</p>
-        </body>
-        </html>
-        """
+        subject = "Welcome to Zara AI! 🚀"
+        html_content = f"<h1>Welcome, {name}!</h1>"
         return self._send_notification(email, subject, html_content)
 
-    def send_verification_email_link(self, email: str, token: str):
-        # Link points to frontend verification page
-        verify_link = f"{settings.FRONTEND_URL}/verify-email?token={token}"
-        verify_link = f"{settings.FRONTEND_URL}/verify-email?token={token}"
-        print(f"TESTING: Verification Link: {verify_link}", flush=True)
-        
-        subject = "Verify your email - Zara AI"
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                body {{ font-family: sans-serif; color: #333; }}
-                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                .btn {{ background-color: #7c3aed; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h2>Welcome to Zara AI!</h2>
-                <p>Please verify your email address to continue.</p>
-                <p style="text-align: center; margin: 30px 0;">
-                    <a href="{verify_link}" class="btn">Verify Email</a>
-                </p>
-                <p>Or paste this link: {verify_link}</p>
-                <p>This link expires in 24 hours.</p>
-            </div>
-        </body>
-        </html>
-        """
-        return self._send_critical(email, subject, html_content)
-        
-    def send_otp_email(self, email: str, otp: str):
-        """
-        Alias for send_verification_email to match existing interface in api/auth.py
-        """
-        return self.send_verification_email(email, otp)
-        
-    def send_reset_password_email_alias(self, email: str, token: str):
-         # The existing code calls send_reset_password_email, so the method above is fine. 
-         # I just need to make sure the arguments match the existing call.
-         return self.send_password_reset_email(email, token)
+    def send_login_alert(self, email: str, ip: str = "Unknown"):
+        subject = "New Login Alert - Zara AI"
+        html_content = f"<p>New login for {email} from IP {ip}.</p>"
+        return self._send_notification(email, subject, html_content)
 
 email_service = EmailService()

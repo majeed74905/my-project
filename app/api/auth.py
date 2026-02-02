@@ -185,7 +185,7 @@ async def google_login_post(
 def create_verification_token(user_id: int) -> str:
     return jwt.create_access_token(
         subject=user_id, 
-        expires_delta=timedelta(hours=24) # 24 hour validity
+        expires_delta=timedelta(minutes=15) # Short-lived 15 mins
     )
 
 @router.post("/register")
@@ -230,7 +230,8 @@ async def register(
 
 @router.post("/verify-email")
 def verify_email(
-    verify_in: user_schemas.TokenVerify, # Changed to TokenVerify
+    verify_in: user_schemas.TokenVerify,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
     try:
@@ -250,6 +251,9 @@ def verify_email(
         return {"msg": "Email already verified"}
 
     user.is_verified = True
+    
+    # Send Welcome Email (Non-blocking via Brevo)
+    background_tasks.add_task(email_service.send_welcome_email, user.email, user.full_name or "there")
     
     log = ActivityLog(user_id=user.id, action="EMAIL_VERIFIED", details="Email verified successfully via Link")
     db.add(log)
@@ -281,6 +285,88 @@ def resend_otp(
     db.commit()
     
     return {"message": "Verification link resent successfully"}
+
+@router.post("/magic-link")
+async def request_magic_link(
+    email_req: user_schemas.EmailRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    Feature: Request a magic login link
+    """
+    user = db.query(User).filter(User.email == email_req.email).first()
+    if not user:
+        # Prevent email enumeration
+        return {"message": "If this email is registered, a magic login link has been sent."}
+    
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="Inactive user")
+
+    # Generate Magic Link Token (15 mins)
+    magic_token = jwt.create_access_token(
+        subject=user.id, expires_delta=timedelta(minutes=15)
+    )
+    
+    background_tasks.add_task(email_service.send_magic_link, user.email, magic_token)
+    
+    log = ActivityLog(user_id=user.id, action="MAGIC_LINK_REQUESTED", details="Magic login link sent")
+    db.add(log)
+    db.commit()
+    
+    return {"message": "If this email is registered, a magic login link has been sent."}
+
+@router.post("/magic-login", response_model=token_schemas.Token)
+def magic_login(
+    verify_in: user_schemas.TokenVerify,
+    db: Session = Depends(get_db)
+):
+    """
+    Complete the magic login flow by exchanging token for access token
+    """
+    try:
+        # Decode Token
+        payload = jwt.jwt.decode(verify_in.token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+             raise HTTPException(status_code=400, detail="Invalid token")
+    except jwt.JWTError:
+        raise HTTPException(status_code=400, detail="Invalid or expired magic link")
+
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="Inactive user")
+
+    # Magic link validates email automatically
+    if not user.is_verified:
+        user.is_verified = True
+    
+    log = ActivityLog(user_id=user.id, action="MAGIC_LOGIN", details="Successful login via Magic Link")
+    db.add(log)
+    db.commit()
+
+    # Create real tokens
+    access_token = jwt.create_access_token(subject=user.id)
+    refresh_token = jwt.create_refresh_token(subject=user.id)
+    
+    # Store refresh token
+    db_token = RefreshToken(
+        user_id=user.id,
+        token=refresh_token,
+        expires_at=datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    )
+    db.add(db_token)
+    db.commit()
+
+    return {
+        "access_token": access_token, 
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "email": user.email
+    }
 
 @router.post("/login", response_model=token_schemas.Token)
 async def login(
@@ -318,6 +404,9 @@ async def login(
 
     user.failed_login_attempts = 0
     user.locked_until = None
+    
+    # Send Login Alert (Non-blocking via Brevo)
+    background_tasks.add_task(email_service.send_login_alert, user.email)
     
     log = ActivityLog(user_id=user.id, action="LOGIN", details="Successful login")
     db.add(log)
@@ -362,7 +451,7 @@ def forgot_password(
     # In a stricter system, use a specific 'reset' type token in specific table
     
     reset_token = jwt.create_access_token(
-        subject=user.id, expires_delta=timedelta(minutes=60)
+        subject=user.id, expires_delta=timedelta(minutes=15)
     )
     
     # Store token in log or just rely on stateless JWT?
@@ -402,3 +491,8 @@ def reset_password(
     db.commit()
     
     return {"msg": "Password updated successfully"}
+
+@router.get("/debug/last-emails")
+async def get_debug_emails():
+    """Developer endpoint to see latest sent email links (for local testing)"""
+    return {"emails": email_service.get_last_emails()}

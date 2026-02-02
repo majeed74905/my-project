@@ -19,7 +19,6 @@ class ResendProvider(EmailProvider):
             
         try:
             # Use onboarding@resend.dev for testing/reliability if domain not verified
-            # from_email = f"{settings.EMAILS_FROM_NAME} <{settings.EMAILS_FROM_EMAIL}>" if settings.EMAILS_FROM_EMAIL else "Zara AI <noreply@zara-ai.com>"
             from_email = "onboarding@resend.dev"
             
             params = {
@@ -29,15 +28,21 @@ class ResendProvider(EmailProvider):
                 "html": html_content
             }
             
+            logger.info(f"RESEND: Sending via API to {to_email}...")
             r = resend.Emails.send(params)
+            
             # Resend returns a dict with 'id' on success
             if r and 'id' in r:
-                logger.info(f"Email sent via Resend to {to_email} (ID: {r['id']})")
+                logger.info(f"RESEND: SUCCESS - Email sent to {to_email} (ID: {r['id']})")
                 return True
             else:
-                logger.error(f"Resend API returned unexpected response: {r}")
+                logger.error(f"RESEND: API FAILURE - Unexpected response: {r}")
                 return False
                 
         except Exception as e:
-            logger.error(f"Resend Provider Failed: {str(e)}")
+            error_str = str(e)
+            if "testing emails to your own email address" in error_str:
+                logger.warning(f"RESEND: RESTRICTION - Cannot send to non-owner {to_email} with onboarding account.")
+            else:
+                logger.error(f"RESEND: PROVIDER ERROR - {error_str}")
             return False
