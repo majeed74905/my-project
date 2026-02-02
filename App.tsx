@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense, lazy } from 'react';
 import { VerifyEmailPage } from './VerifyEmailPage';
 import { ResetPasswordPage } from './ResetPasswordPage';
+import { MagicLinkPage } from './MagicLinkPage';
 import { Sparkles, BookOpen, Heart, Code2, Palette, WifiOff, Globe, Search, ChevronDown, Brain, Upload, FileText, File, Menu, X, Loader2, Activity, Eye, EyeOff } from 'lucide-react';
 import { Message, Role, Attachment, ViewMode, ChatConfig, PersonalizationConfig, Persona } from './types';
 import { sendMessageToGeminiStream } from './services/gemini';
@@ -62,9 +63,11 @@ const LoadingFallback = () => (
 const App: React.FC = () => {
   const [isVerificationPage, setIsVerificationPage] = useState(window.location.pathname === '/verify-email');
   const [isResetPage, setIsResetPage] = useState(window.location.pathname === '/reset-password');
+  const [isMagicLinkPage, setIsMagicLinkPage] = useState(window.location.pathname === '/auth/magic-link');
 
   const { lastView, updateView, systemConfig, updateSystemConfig } = useAppMemory();
   const { currentThemeName, setTheme } = useTheme();
+
 
   useEffect(() => {
     // Check for Verification Link
@@ -74,7 +77,50 @@ const App: React.FC = () => {
     if (window.location.pathname === '/reset-password') {
       setIsResetPage(true);
     }
+    if (window.location.pathname === '/auth/magic-link') {
+      setIsMagicLinkPage(true);
+    }
   }, []);
+
+
+  useBackgroundSync();
+
+  const [currentView, setCurrentView] = useState<ViewMode>('chat');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isCommandOpen, setIsCommandOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+
+  const [isFlipping, setIsFlipping] = useState(false);
+
+  const [currentUser, setCurrentUser] = useState<{ email: string, is_privacy_mode?: boolean, auto_delete_days?: number } | null>(null);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+
+  const fetchUserProfile = useCallback(async (token: string) => {
+    try {
+      const res = await fetch(`${(import.meta as any).env.VITE_API_URL || 'http://localhost:8000/api/v1'}/users/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentUser({
+          email: data.email,
+          is_privacy_mode: data.is_privacy_mode,
+          auto_delete_days: data.auto_delete_days
+        });
+      }
+    } catch (e) { console.error("Failed to fetch profile", e); }
+  }, []);
+
+  const handleLoginSuccess = useCallback((token: string, email: string) => {
+    localStorage.setItem('auth_token', token);
+    localStorage.setItem('auth_email', email);
+    setCurrentUser({ email }); // Optimistic update
+    fetchUserProfile(token); // Fetch real status
+    setIsAuthOpen(false);
+  }, [fetchUserProfile]);
 
   if (isVerificationPage) {
     return (
@@ -92,36 +138,14 @@ const App: React.FC = () => {
     );
   }
 
-  useBackgroundSync();
+  if (isMagicLinkPage) {
+    return (
+      <div className="flex h-screen bg-background overflow-hidden text-text font-sans items-center justify-center">
+        <MagicLinkPage onLoginSuccess={handleLoginSuccess} />
+      </div>
+    );
+  }
 
-  const [currentView, setCurrentView] = useState<ViewMode>('chat');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isCommandOpen, setIsCommandOpen] = useState(false);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [showExportMenu, setShowExportMenu] = useState(false);
-
-  const [isFlipping, setIsFlipping] = useState(false);
-
-  const [currentUser, setCurrentUser] = useState<{ email: string, is_privacy_mode?: boolean, auto_delete_days?: number } | null>(null);
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
-
-  const fetchUserProfile = async (token: string) => {
-    try {
-      const res = await fetch(`${(import.meta as any).env.VITE_API_URL || 'http://localhost:8000/api/v1'}/users/me`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setCurrentUser({
-          email: data.email,
-          is_privacy_mode: data.is_privacy_mode,
-          auto_delete_days: data.auto_delete_days
-        });
-      }
-    } catch (e) { console.error("Failed to fetch profile", e); }
-  };
 
   useEffect(() => {
     // Check for OAuth token in URL (from Backend Redirect)
@@ -145,13 +169,6 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const handleLoginSuccess = (token: string, email: string) => {
-    localStorage.setItem('auth_token', token);
-    localStorage.setItem('auth_email', email);
-    setCurrentUser({ email }); // Optimistic update
-    fetchUserProfile(token); // Fetch real status
-    setIsAuthOpen(false);
-  };
 
   const handleClearSession = async () => {
     const sessionId = sessionStorage.getItem('zara_session_id');

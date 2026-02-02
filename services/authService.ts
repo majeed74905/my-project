@@ -101,6 +101,19 @@ export const authService = {
         return response.json() as Promise<{ access_token: string; token_type: string; email?: string }>;
     },
 
+    async magicLogin(token: string) {
+        const response = await fetch(`${API_URL}/auth/magic-login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token }),
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Magic login failed');
+        }
+        return response.json() as Promise<{ access_token: string; refresh_token: string; token_type: string; email: string }>;
+    },
+
     redirectToGoogle() {
         window.location.href = `${API_URL}/auth/google/login`;
     },
