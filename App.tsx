@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense, lazy } from 'react';
+import { VerifyEmailPage } from './VerifyEmailPage';
+import { ResetPasswordPage } from './ResetPasswordPage';
 import { Sparkles, BookOpen, Heart, Code2, Palette, WifiOff, Globe, Search, ChevronDown, Brain, Upload, FileText, File, Menu, X, Loader2, Activity, Eye, EyeOff } from 'lucide-react';
 import { Message, Role, Attachment, ViewMode, ChatConfig, PersonalizationConfig, Persona } from './types';
 import { sendMessageToGeminiStream } from './services/gemini';
@@ -22,6 +24,7 @@ import { exportChatToMarkdown, exportChatToPDF, exportChatToText } from './utils
 import { useBackgroundSync } from './hooks/useBackgroundSync';
 
 // Lazy Loaded Components for Performance
+// Lazy Loaded Components for Performance
 const StudentMode = lazy(() => import('./components/StudentMode').then(m => ({ default: m.StudentMode })));
 const CodeMode = lazy(() => import('./components/CodeMode').then(m => ({ default: m.CodeMode })));
 const LiveMode = lazy(() => import('./components/LiveMode').then(m => ({ default: m.LiveMode })));
@@ -33,6 +36,8 @@ const AboutPage = lazy(() => import('./components/AboutPage').then(m => ({ defau
 const FlashcardMode = lazy(() => import('./components/FlashcardMode').then(m => ({ default: m.FlashcardMode })));
 const VideoMode = lazy(() => import('./components/VideoMode').then(m => ({ default: m.VideoMode })));
 const NotesVault = lazy(() => import('./components/NotesVault').then(m => ({ default: m.NotesVault })));
+
+
 
 const GithubMode = lazy(() => import('./components/GithubMode').then(m => ({ default: m.GithubMode })));
 const LifeOS = lazy(() => import('./components/features/LifeOS').then(m => ({ default: m.LifeOS })));
@@ -55,8 +60,37 @@ const LoadingFallback = () => (
 );
 
 const App: React.FC = () => {
+  const [isVerificationPage, setIsVerificationPage] = useState(window.location.pathname === '/verify-email');
+  const [isResetPage, setIsResetPage] = useState(window.location.pathname === '/reset-password');
+
   const { lastView, updateView, systemConfig, updateSystemConfig } = useAppMemory();
   const { currentThemeName, setTheme } = useTheme();
+
+  useEffect(() => {
+    // Check for Verification Link
+    if (window.location.pathname === '/verify-email') {
+      setIsVerificationPage(true);
+    }
+    if (window.location.pathname === '/reset-password') {
+      setIsResetPage(true);
+    }
+  }, []);
+
+  if (isVerificationPage) {
+    return (
+      <div className="flex h-screen bg-background overflow-hidden text-text font-sans items-center justify-center">
+        <VerifyEmailPage />
+      </div>
+    );
+  }
+
+  if (isResetPage) {
+    return (
+      <div className="flex h-screen bg-background overflow-hidden text-text font-sans items-center justify-center">
+        <ResetPasswordPage />
+      </div>
+    );
+  }
 
   useBackgroundSync();
 

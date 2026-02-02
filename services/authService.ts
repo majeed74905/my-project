@@ -36,17 +36,17 @@ export const authService = {
         return response.json() as Promise<{ access_token: string; token_type: string }>;
     },
 
-    async verifyOTP(data: OTPVerify) {
+    async verifyToken(token: string) {
         const response = await fetch(`${API_URL}/auth/verify-email`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
+            body: JSON.stringify({ token }),
         });
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.detail || 'OTP Verification failed');
+            throw new Error(error.detail || 'Verification failed');
         }
-        return response.json() as Promise<{ msg: string; access_token?: string }>;
+        return response.json() as Promise<{ msg: string; }>;
     },
 
     async resendOTP(data: ResendOTP) {

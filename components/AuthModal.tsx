@@ -10,13 +10,12 @@ interface AuthModalProps {
     onLoginSuccess: (token: string, email: string) => void;
 }
 
-type AuthView = 'login' | 'signup' | 'otp' | 'forgot' | 'reset';
+type AuthView = 'login' | 'signup' | 'link-sent' | 'forgot' | 'reset';
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSuccess }) => {
     const [view, setView] = useState<AuthView>('login');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [otp, setOtp] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -58,8 +57,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
         try {
             if (view === 'signup') {
                 const res = await authService.register({ email, password });
-                setSuccessMsg(res.message || 'User registered successfully. Please verify your email.');
-                setView('otp');
+                setSuccessMsg(res.message || 'User registered successfully. Please check your email for verification link.');
+                setView('link-sent');
             } else if (view === 'login') {
                 try {
                     const res = await authService.login({ email, password });
@@ -72,10 +71,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                         throw err;
                     }
                 }
-            } else if (view === 'otp') {
-                const res = await authService.verifyOTP({ email, otp });
-                onLoginSuccess(res.access_token || 'temp_token', email); // handle if verify returns token
-                onClose();
             } else if (view === 'forgot') {
                 const res = await authService.forgotPassword(email);
                 setSuccessMsg(res.msg);
@@ -112,7 +107,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                     <h2 className="text-xl font-bold text-white flex items-center gap-2">
                         {view === 'login' && <><LogIn className="w-5 h-5 text-purple-400" /> Welcome Back</>}
                         {view === 'signup' && <><UserPlus className="w-5 h-5 text-purple-400" /> Create Account</>}
-                        {view === 'otp' && <><Key className="w-5 h-5 text-green-400" /> Verify Email</>}
+                        {view === 'link-sent' && <><Mail className="w-5 h-5 text-green-400" /> Check Your Email</>}
                         {view === 'forgot' && <><Lock className="w-5 h-5 text-blue-400" /> Reset Password</>}
                         {view === 'reset' && <><Lock className="w-5 h-5 text-blue-400" /> New Password</>}
                     </h2>
@@ -212,43 +207,38 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                             </>
                         )}
 
-                        {view === 'otp' && (
-                            <div className="space-y-4">
-                                <p className="text-sm text-gray-400 text-center">We sent a verification code to <br /><span className="text-white font-medium">{email}</span></p>
-                                <div className="relative">
-                                    <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-                                    <input
-                                        type="text"
-                                        required
-                                        value={otp}
-                                        onChange={e => setOtp(e.target.value)}
-                                        className="w-full bg-[#1a1033] border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-green-500 transition-colors placeholder:text-gray-600 text-center text-lg tracking-[0.5em] font-mono"
-                                        placeholder="000000"
-                                        maxLength={6}
-                                    />
+                        {view === 'link-sent' && (
+                            <div className="space-y-6 text-center py-4 text-gray-300">
+                                <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                                    <Mail className="w-8 h-8 text-green-400" />
                                 </div>
-                                <div className="text-center">
+                                <p>We've sent a magic verification link to:</p>
+                                <p className="font-bold text-white text-lg">{email}</p>
+                                <p className="text-sm">Click the link in the email to activate your account.</p>
+                                <div className="text-center pt-2">
                                     <button type="button" onClick={handleResendOtp} disabled={isLoading} className="text-xs text-purple-400 hover:text-purple-300 underline">
-                                        Resend Code
+                                        Resend Link
                                     </button>
                                 </div>
                             </div>
                         )}
 
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg hover:shadow-purple-500/25 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group"
-                        >
-                            {isLoading ? (
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                            ) : (
-                                <>
-                                    {view === 'login' ? 'Sign In' : view === 'signup' ? 'Create Account' : view === 'forgot' ? 'Send Link' : view === 'reset' ? 'Update Password' : 'Verify & Login'}
-                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                                </>
-                            )}
-                        </button>
+                        {view === 'link-sent' ? null : (
+                            <button
+                                type="submit"
+                                disabled={isLoading}
+                                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg hover:shadow-purple-500/25 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed group"
+                            >
+                                {isLoading ? (
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                ) : (
+                                    <>
+                                        {view === 'login' ? 'Sign In' : view === 'signup' ? 'Create Account' : view === 'forgot' ? 'Send Link' : view === 'reset' ? 'Update Password' : 'Verify & Login'}
+                                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                                    </>
+                                )}
+                            </button>
+                        )}
 
                         {(view === 'login' || view === 'signup') && (
                             <>
