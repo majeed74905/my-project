@@ -25,7 +25,7 @@ import { HomeDashboard } from './components/features/HomeDashboard';
 import { exportChatToMarkdown, exportChatToPDF, exportChatToText } from './utils/exportUtils';
 import { useBackgroundSync } from './hooks/useBackgroundSync';
 
-// Lazy Loaded Components For Performance
+// Lazy Loaded Components for Performance
 const StudentMode = lazy(() => import('./components/StudentMode').then(m => ({ default: m.StudentMode })));
 const CodeMode = lazy(() => import('./components/CodeMode').then(m => ({ default: m.CodeMode })));
 const LiveMode = lazy(() => import('./components/LiveMode').then(m => ({ default: m.LiveMode })));
@@ -73,9 +73,11 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isCommandOpen, setIsCommandOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
+
   const [currentUser, setCurrentUser] = useState<{ email: string, is_privacy_mode?: boolean, auto_delete_days?: number } | null>(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
 
@@ -129,7 +131,9 @@ const App: React.FC = () => {
         await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'}/ai/session/${sessionId}`, {
           method: 'DELETE'
         });
-      } catch (e) { console.error("Failed to clear session on backend", e); }
+      } catch (e) {
+        console.error("Failed to clear session on backend", e);
+      }
     }
     setMessages([]);
     clearCurrentSession();
@@ -167,7 +171,10 @@ const App: React.FC = () => {
   }, [updateView]);
 
   const [chatConfig, setChatConfig] = useState<ChatConfig>({
-    model: 'zara-fast', useThinking: false, useGrounding: false, isEmotionalMode: false
+    model: 'zara-fast',
+    useThinking: false,
+    useGrounding: false,
+    isEmotionalMode: false
   });
 
   useModeThemeSync(currentView, chatConfig.isEmotionalMode, systemConfig.autoTheme, setTheme);
@@ -184,6 +191,8 @@ const App: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const shouldAutoScrollRef = useRef(true);
   const abortRef = useRef<boolean>(false);
@@ -206,26 +215,31 @@ const App: React.FC = () => {
     } else if (action === 'logout') {
       securityService.logout();
       setPersonalization(prev => ({ ...prev, isVerifiedCreator: false }));
-      return "Logged out.";
+      return "You’ve been logged out. How can I help you?";
     }
     return "Action failed.";
   };
 
   const handleSendMessage = async (text: string, attachments: Attachment[]) => {
     if (isLoading) return;
+
     abortRef.current = false;
     shouldAutoScrollRef.current = true;
+
     let historyToUse = messages;
     if (editingMessage) {
       const idx = messages.findIndex(m => m.id === editingMessage.id);
       if (idx !== -1) historyToUse = messages.slice(0, idx);
       setEditingMessage(null);
     }
+
     const newUserMsg: Message = { id: crypto.randomUUID(), role: Role.USER, text, attachments, timestamp: Date.now() };
     const msgsWithUser = [...historyToUse, newUserMsg];
     setMessages(msgsWithUser);
     setIsLoading(true);
+
     const botMsgId = crypto.randomUUID();
+
     if (!isOnline) {
       setTimeout(async () => {
         const resp = await OfflineService.processMessage(text, personalization, handleViewChange);
@@ -237,20 +251,30 @@ const App: React.FC = () => {
       }, 600);
       return;
     }
+
     const initialBotMsg: Message = { id: botMsgId, role: Role.MODEL, text: '', timestamp: Date.now(), isStreaming: true };
     setMessages([...msgsWithUser, initialBotMsg]);
+
     try {
       let activePersona: Persona | undefined;
-      const stored = localStorage.getItem('zara_personas');
-      if (stored && chatConfig.activePersonaId) {
-        const personas: Persona[] = JSON.parse(stored);
-        activePersona = personas.find(p => p.id === chatConfig.activePersonaId);
+      if (chatConfig.activePersonaId) {
+        const stored = localStorage.getItem('zara_personas');
+        if (stored) {
+          const personas: Persona[] = JSON.parse(stored);
+          activePersona = personas.find(p => p.id === chatConfig.activePersonaId);
+        }
       }
+
       const { text: finalText, sources } = await sendMessageToGeminiStream(
         historyToUse, text, attachments, chatConfig, personalization,
-        (partial) => { if (!abortRef.current) setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: partial } : m)); },
-        activePersona, handleSecurityAction
+        (partial) => {
+          if (abortRef.current) return;
+          setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: partial } : m));
+        },
+        activePersona,
+        handleSecurityAction
       );
+
       if (abortRef.current) return;
       const finalBotMsg = { ...initialBotMsg, text: finalText, sources, isStreaming: false };
       const finalMessages = [...msgsWithUser, finalBotMsg];
@@ -258,8 +282,15 @@ const App: React.FC = () => {
       if (currentSessionId) updateSession(currentSessionId, finalMessages); else createSession(finalMessages);
     } catch (error: any) {
       if (abortRef.current) return;
-      setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, isStreaming: false, isError: true, text: "Error. Try again." } : m));
-    } finally { setIsLoading(false); }
+      let errorMessage = "Zara AI is currently unstable. Please try again in a moment.";
+      const errorStr = (error?.message || "").toLowerCase();
+      if (errorStr.includes("quota_exceeded") || errorStr.includes("429")) {
+        errorMessage = "QUOTA EXCEEDED: I've reached the API processing limit. Please wait about 30 seconds before trying again.";
+      }
+      setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, isStreaming: false, isError: true, text: errorMessage } : m));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const currentSession = currentSessionId ? sessions.find(s => s.id === currentSessionId) || null : null;
@@ -273,70 +304,291 @@ const App: React.FC = () => {
     const idx = messages.findIndex(m => m.id === message.id);
     if (idx <= 0) return;
     const userMsg = messages[idx - 1];
-    setMessages(messages.slice(0, idx));
+    if (userMsg.role !== Role.USER) return;
+    const history = messages.slice(0, idx);
+    setMessages(history);
     handleSendMessage(userMsg.text, userMsg.attachments || []);
   };
 
   const handleTogglePrivacy = async (enabled: boolean) => {
     try {
       await authService.setPrivacyMode(enabled);
-      if (currentUser) setCurrentUser({ ...currentUser, is_privacy_mode: enabled });
-    } catch (e) { }
+      if (currentUser) {
+        setCurrentUser({ ...currentUser, is_privacy_mode: enabled });
+      }
+    } catch (e) {
+      console.error("Failed to toggle privacy", e);
+    }
   };
+
+  const MobileMenuToggle = () => (
+    <button
+      onClick={() => setIsSidebarOpen(true)}
+      className="p-2 -ml-2 text-text hover:bg-surfaceHighlight rounded-lg md:hidden flex-shrink-0"
+      aria-label="Open Navigation Menu"
+    >
+      <Menu className="w-6 h-6" />
+    </button>
+  );
 
   const currentContent = useMemo(() => {
     const withMobileHeader = (content: React.ReactNode, title: string) => (
       <div className="flex flex-col h-full w-full">
         <header className="md:hidden flex items-center px-4 py-3 bg-background/50 backdrop-blur-sm border-b border-white/5 z-30 sticky top-0">
-          <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 text-text md:hidden"><Menu /></button>
-          <span className="ml-2 font-bold text-sm uppercase text-primary">{title}</span>
+          <MobileMenuToggle />
+          <span className="ml-2 font-bold text-sm uppercase tracking-widest text-primary truncate">{title}</span>
         </header>
-        <div className="flex-1 overflow-hidden"><Suspense fallback={<LoadingFallback />}>{content}</Suspense></div>
+        <div className="flex-1 overflow-hidden">
+          <Suspense fallback={<LoadingFallback />}>
+            {content}
+          </Suspense>
+        </div>
       </div>
     );
+
     switch (currentView) {
       case 'dashboard': return withMobileHeader(<HomeDashboard onViewChange={handleViewChange} onActivateCare={handleActivateCare} />, "Dashboard");
       case 'student': return withMobileHeader(<StudentMode />, "Tutor");
-      case 'code': return withMobileHeader(<CodeMode />, "Code");
-      case 'live': return withMobileHeader(<LiveMode personalization={personalization} />, "Live");
-      case 'workspace': return withMobileHeader(<ImageMode />, "Studio");
-      case 'notes': return withMobileHeader(<NotesVault onStartChat={(ctx) => { handleSendMessage(ctx, []); handleViewChange('chat'); }} />, "Notes");
+      case 'code': return withMobileHeader(<CodeMode />, "Code Architect");
+      case 'live': return withMobileHeader(<LiveMode personalization={personalization} />, "Live Studio");
+      case 'exam': return withMobileHeader(<ExamMode />, "Exam Prep");
+      case 'analytics': return withMobileHeader(<AnalyticsDashboard />, "Analytics");
+      case 'planner': return withMobileHeader(<StudyPlanner />, "Study Planner");
+      case 'about': return withMobileHeader(<AboutPage />, "About Zara");
+      case 'workspace': return withMobileHeader(<ImageMode />, "Image Studio");
+
+      case 'notes': return withMobileHeader(<NotesVault onStartChat={(ctx) => { handleSendMessage(ctx, []); handleViewChange('chat'); }} />, "Notes Vault");
+      case 'life-os': return withMobileHeader(<LifeOS />, "LifeOS");
+      case 'skills': return withMobileHeader(<SkillOS />, "SkillOS");
+      case 'memory': return withMobileHeader(<MemoryVault />, "Memory Vault");
+      case 'creative': return withMobileHeader(<CreativeStudio />, "Creative Studio");
+      case 'pricing': return withMobileHeader(<PricingView />, "Pricing");
+      case 'mastery': return withMobileHeader(<FlashcardMode />, "Flashcards");
+      case 'video': return withMobileHeader(<VideoMode />, "Video Studio");
+      case 'github': return withMobileHeader(<GithubMode />, "GitHub Architect");
       case 'chat':
       default:
+        const fs = personalization.fontSize === 'large' ? 'text-lg' : personalization.fontSize === 'small' ? 'text-sm' : 'text-base';
         return (
-          <div className="flex-1 flex flex-col h-full relative transition-all animate-fade-in">
-            <header className="flex items-center justify-between px-4 py-3 bg-background/50 border-b border-white/5 z-30 sticky top-0">
-              <div className="flex items-center gap-2"><button onClick={() => setIsSidebarOpen(true)} className="md:hidden"><Menu /></button><ChatControls config={chatConfig} setConfig={setChatConfig} currentSession={currentSession} /></div>
-              <div className="flex items-center gap-2">
-                {currentUser && <button onClick={() => handleTogglePrivacy(!currentUser.is_privacy_mode)} className="p-2">{currentUser.is_privacy_mode ? <EyeOff /> : <Eye />}</button>}
-                <button onClick={() => setChatConfig(prev => ({ ...prev, isEmotionalMode: !prev.isEmotionalMode }))} className="p-2"><Heart className={chatConfig.isEmotionalMode ? 'fill-current' : ''} /></button>
-                <button onClick={() => setChatConfig(prev => ({ ...prev, useGrounding: !prev.useGrounding }))} className="p-2"><Globe /></button>
-                <button onClick={() => setChatConfig(prev => ({ ...prev, useThinking: !prev.useThinking }))} className="p-2"><Brain /></button>
+          <div className={`flex-1 flex flex-col h-full relative ${fs} transition-all duration-500 animate-fade-in ${chatConfig.isEmotionalMode ? 'bg-[#0f0821]' : ''}`}>
+            <header className="flex items-center justify-between px-4 py-3 bg-background/50 backdrop-blur-sm border-b border-white/5 z-30 sticky top-0">
+              <div className="flex items-center gap-2 md:gap-3">
+                <MobileMenuToggle />
+                <ChatControls
+                  config={chatConfig} setConfig={setChatConfig}
+                  currentSession={currentSession}
+                />
+              </div>
+
+              <div className="flex items-center gap-1">
+                {currentUser && (
+                  <button
+                    onClick={() => handleTogglePrivacy(!currentUser.is_privacy_mode)}
+                    className={`p-2 rounded-full transition-all duration-300 transform active:scale-95 ${currentUser.is_privacy_mode
+                      ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.2)]'
+                      : 'bg-surfaceHighlight/50 text-text-sub hover:text-green-400 hover:bg-green-500/5'
+                      }`}
+                    aria-label={currentUser.is_privacy_mode ? "Disable Privacy Mode" : "Enable Privacy Mode"}
+                    title={currentUser.is_privacy_mode ? "Privacy Mode: ON (History Protection Active)" : "Privacy Mode: OFF (History Being Saved)"}
+                  >
+                    {currentUser.is_privacy_mode ? (
+                      <EyeOff className="w-5 h-5 animate-in fade-in zoom-in duration-300" />
+                    ) : (
+                      <Eye className="w-5 h-5 animate-in fade-in zoom-in duration-300" />
+                    )}
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setChatConfig(prev => ({ ...prev, isEmotionalMode: !prev.isEmotionalMode }))}
+                  className={`p-2 rounded-full transition-all duration-300 ${chatConfig.isEmotionalMode
+                    ? 'bg-[#1a1033] text-purple-400 shadow-lg border border-purple-500/20'
+                    : 'text-text-sub hover:bg-surfaceHighlight hover:text-purple-400'
+                    }`}
+                  aria-label={chatConfig.isEmotionalMode ? "Disable Emotional Support Mode" : "Enable Emotional Support Mode"}
+                >
+                  <Heart className={`w-5 h-5 ${chatConfig.isEmotionalMode ? 'fill-current' : ''}`} />
+                </button>
+
+                <button
+                  onClick={() => setChatConfig(prev => ({ ...prev, useGrounding: !prev.useGrounding }))}
+                  className={`p-2 rounded-full transition-all ${chatConfig.useGrounding
+                    ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.3)]'
+                    : 'text-text-sub hover:bg-surfaceHighlight hover:text-blue-400'
+                    }`}
+                  aria-label={chatConfig.useGrounding ? "Disable Google Search" : "Enable Google Search"}
+                >
+                  <Globe className={`w-5 h-5 ${chatConfig.useGrounding ? 'fill-current' : ''}`} />
+                </button>
+
+                {currentSession && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowExportMenu(!showExportMenu)}
+                      className={`p-2 rounded-full transition-colors ${showExportMenu ? 'bg-surfaceHighlight text-text' : 'text-text-sub hover:bg-surfaceHighlight'}`}
+                      aria-label="Export Chat Options"
+                    >
+                      <Upload className="w-5 h-5" />
+                    </button>
+                    {showExportMenu && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
+                        <div className="absolute right-0 top-full mt-2 w-48 bg-surface border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col z-50 animate-fade-in backdrop-blur-xl">
+                          <div className="px-4 py-3 text-[10px] font-black text-text-sub uppercase tracking-[0.2em] bg-white/5">Export As</div>
+                          <button onClick={() => { exportChatToMarkdown(currentSession); setShowExportMenu(false); }} className="px-4 py-3 hover:bg-white/5 text-left text-sm flex items-center gap-3 text-text transition-colors">
+                            <FileText className="w-4 h-4 text-primary" /> Markdown
+                          </button>
+                          <button onClick={() => { exportChatToText(currentSession); setShowExportMenu(false); }} className="px-4 py-3 hover:bg-white/5 text-left text-sm flex items-center gap-3 text-text transition-colors">
+                            <File className="w-4 h-4 text-primary" /> Plain Text
+                          </button>
+                          <button onClick={() => { exportChatToPDF(currentSession); setShowExportMenu(false); }} className="px-4 py-3 hover:bg-white/5 text-left text-sm flex items-center gap-3 text-text transition-colors">
+                            <FileText className="w-4 h-4 text-primary" /> Print / PDF
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  onClick={() => setChatConfig(prev => ({ ...prev, useThinking: !prev.useThinking }))}
+                  className={`p-2 rounded-full transition-all ${chatConfig.useThinking
+                    ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                    : 'text-text-sub hover:bg-surfaceHighlight'
+                    }`}
+                  aria-label={chatConfig.useThinking ? "Disable Deep Thinking" : "Enable Deep Thinking"}
+                >
+                  <Brain className="w-5 h-5" />
+                </button>
               </div>
             </header>
-            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
-              <div className="max-w-3xl mx-auto py-6 space-y-2">
-                {messages.length === 0 ? <div className="text-center py-20"><h1>Zara AI</h1></div> : messages.map(msg => <MessageItem key={msg.id} message={msg} onEdit={setEditingMessage} onRegenerate={handleRegenerate} onLike={() => { }} onDislike={() => { }} onShare={() => { }} onBranch={() => { }} />)}
+
+            <div ref={scrollContainerRef} onScroll={() => {
+              if (scrollContainerRef.current) {
+                const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+                shouldAutoScrollRef.current = scrollHeight - scrollTop - clientHeight < 100;
+              }
+            }} className="flex-1 overflow-y-auto px-4 md:px-0 scroll-smooth">
+              <div className="max-w-3xl mx-auto h-full flex flex-col">
+                {messages.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                    {chatConfig.isEmotionalMode ? (
+                      <div className="animate-fade-in flex flex-col items-center w-full max-w-lg">
+                        <div className="w-28 h-28 rounded-[2rem] bg-[#1a1033] border border-purple-500/20 flex items-center justify-center mb-10 shadow-2xl relative">
+                          <Heart className="w-14 h-14 text-purple-400 fill-purple-400/20" />
+                          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent rounded-[2rem]" />
+                        </div>
+
+                        <div className="mb-14 animate-slide-up">
+                          <p className="text-xl font-medium text-text-sub/60 mb-1">Hello, I'm</p>
+                          <h1 className="text-7xl font-bold mb-8 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-white">
+                            Zara Care
+                          </h1>
+                          <p className="text-xl text-text font-medium opacity-90">
+                            I'm listening. How are you feeling?
+                          </p>
+                        </div>
+
+                        <div className="mt-8">
+                          <div className="flex items-center gap-2 px-5 py-2.5 bg-[#120b24] text-purple-400 rounded-full border border-purple-500/30 shadow-lg shadow-purple-500/5">
+                            <Heart className="w-4 h-4 fill-current" />
+                            <span className="text-xs font-bold tracking-wide">Emotional Support Active</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div
+                          onClick={() => {
+                            setIsFlipping(true);
+                            setTimeout(() => setIsFlipping(false), 1000);
+                          }}
+                          className={`w-24 h-24 border rounded-[2rem] flex items-center justify-center mb-8 shadow-2xl relative overflow-hidden group transition-all duration-500 cursor-pointer bg-surfaceHighlight/50 border-white/10 ${isFlipping ? 'animate-flip-3d' : 'animate-float'}`}
+                        >
+                          <div className={`absolute inset-0 bg-gradient-to-br from-purple-500/20 to-transparent animate-shimmer`} />
+                          <Sparkles className="w-12 h-12 text-primary relative z-10" />
+                        </div>
+
+                        <div className="mb-12 animate-slide-up">
+                          <p className="text-xl font-medium text-text-sub mb-1">Hello, I'm</p>
+                          <h1 className={`text-6xl font-black mb-6 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-400`}>
+                            Zara AI
+                          </h1>
+                          <p className="text-lg text-text-sub/80">
+                            What would you like to do?
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex-1 py-6 space-y-2">
+                    {messages.map((msg) => (
+                      <MessageItem
+                        key={msg.id}
+                        message={msg}
+                        onEdit={setEditingMessage}
+                        onRegenerate={handleRegenerate}
+                        onLike={() => { }}
+                        onDislike={() => { }}
+                        onShare={() => { }}
+                        onBranch={() => { }}
+                      />
+                    ))}
+                    <div ref={messagesEndRef} className="h-4" />
+                  </div>
+                )}
               </div>
             </div>
-            <InputArea onSendMessage={handleSendMessage} onStop={() => { abortRef.current = true; setIsLoading(false); }} isLoading={isLoading} disabled={false} isOffline={!isOnline} editMessage={editingMessage} onCancelEdit={() => setEditingMessage(null)} viewMode={currentView} isEmotionalMode={chatConfig.isEmotionalMode} />
+            <InputArea
+              onSendMessage={handleSendMessage} onStop={() => { abortRef.current = true; setIsLoading(false); }}
+              isLoading={isLoading} disabled={false} isOffline={!isOnline} editMessage={editingMessage}
+              onCancelEdit={() => setEditingMessage(null)} viewMode={currentView}
+              isEmotionalMode={chatConfig.isEmotionalMode}
+            />
           </div>
         );
     }
-  }, [currentView, handleViewChange, handleActivateCare, messages, isLoading, isOnline, editingMessage, personalization, chatConfig, currentSession, currentUser]);
+  }, [currentView, handleViewChange, handleActivateCare, messages, isLoading, isOnline, editingMessage, personalization, chatConfig, currentSession, currentUser, isFlipping, showExportMenu]);
 
-  if (isVerificationPage) return <div className="h-screen flex items-center justify-center"><VerifyEmailPage /></div>;
-  if (isResetPage) return <div className="h-screen flex items-center justify-center"><ResetPasswordPage /></div>;
-  if (isMagicLinkPage) return <div className="h-screen flex items-center justify-center"><MagicLinkPage onLoginSuccess={handleLoginSuccess} /></div>;
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsCommandOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  if (isVerificationPage) return <div className="h-screen flex items-center justify-center w-full bg-background"><VerifyEmailPage /></div>;
+  if (isResetPage) return <div className="h-screen flex items-center justify-center w-full bg-background"><ResetPasswordPage /></div>;
+  if (isMagicLinkPage) return <div className="h-screen flex items-center justify-center w-full bg-background"><MagicLinkPage onLoginSuccess={handleLoginSuccess} /></div>;
 
   return (
     <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || ""}>
-      <div className="flex h-screen bg-background text-text">
-        <Sidebar currentView={currentView} onViewChange={handleViewChange} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} sessions={sessions} activeSessionId={currentSessionId} onNewChat={() => { clearCurrentSession(); setMessages([]); handleViewChange('chat'); }} onSelectSession={(id) => { setMessages(loadSession(id)); handleViewChange('chat'); }} onRenameSession={renameSession} onDeleteSession={deleteSession} onOpenFeedback={() => setIsFeedbackOpen(true)} currentUser={currentUser} onLogin={() => setIsAuthOpen(true)} onLogout={handleLogout} onTogglePrivacy={handleTogglePrivacy} />
-        <main className="flex-1 flex flex-col overflow-hidden">{currentContent}</main>
-        <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onLoginSuccess={handleLoginSuccess} />
-        <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} personalization={personalization} setPersonalization={setPersonalization} systemConfig={systemConfig} setSystemConfig={updateSystemConfig} />
+      <div className={`flex h-screen bg-background overflow-hidden text-text font-sans transition-all duration-300 ${systemConfig.density === 'compact' ? 'padding-compact' : ''}`}>
+        <Sidebar
+          currentView={currentView} onViewChange={handleViewChange} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)}
+          sessions={sessions} activeSessionId={currentSessionId} onNewChat={() => { clearCurrentSession(); setMessages([]); handleViewChange('chat'); }}
+          onSelectSession={(id) => { setMessages(loadSession(id)); handleViewChange('chat'); }} onRenameSession={renameSession}
+          onDeleteSession={deleteSession} onOpenFeedback={() => setIsFeedbackOpen(true)}
+          currentUser={currentUser} onLogin={() => setIsAuthOpen(true)} onLogout={handleLogout}
+          onTogglePrivacy={handleTogglePrivacy}
+        />
+        <div className="flex-1 flex flex-col h-full relative w-full overflow-hidden">
+          {!isOnline && <div className="bg-orange-500 text-white text-[10px] font-black py-1 px-4 text-center z-50 uppercase tracking-widest animate-slide-in-right">OFFLINE MODE</div>}
+          <main className="flex-1 overflow-hidden relative flex flex-col key-transition-wrapper">
+            <div key={currentView} className="h-full w-full animate-fade-in overflow-hidden flex flex-col">
+              {currentContent}
+            </div>
+          </main>
+        </div>
+        <CommandPalette isOpen={isCommandOpen} onClose={() => setIsCommandOpen(false)} onAction={(a, p) => { if (a === 'new-chat') { clearCurrentSession(); setMessages([]); handleViewChange('chat'); } else if (a === 'switch-mode') handleViewChange(p); }} />
+        <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} personalization={personalization} setPersonalization={(p) => { setPersonalization(p); localStorage.setItem(STORAGE_KEY_PERSONALIZATION, JSON.stringify(p)); }} systemConfig={systemConfig} setSystemConfig={updateSystemConfig} />
         <FeedbackModal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} />
+        <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onLoginSuccess={handleLoginSuccess} />
       </div>
     </GoogleOAuthProvider>
   );
