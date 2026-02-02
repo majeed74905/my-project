@@ -122,31 +122,6 @@ const App: React.FC = () => {
     setIsAuthOpen(false);
   }, [fetchUserProfile]);
 
-  if (isVerificationPage) {
-    return (
-      <div className="flex h-screen bg-background overflow-hidden text-text font-sans items-center justify-center">
-        <VerifyEmailPage />
-      </div>
-    );
-  }
-
-  if (isResetPage) {
-    return (
-      <div className="flex h-screen bg-background overflow-hidden text-text font-sans items-center justify-center">
-        <ResetPasswordPage />
-      </div>
-    );
-  }
-
-  if (isMagicLinkPage) {
-    return (
-      <div className="flex h-screen bg-background overflow-hidden text-text font-sans items-center justify-center">
-        <MagicLinkPage onLoginSuccess={handleLoginSuccess} />
-      </div>
-    );
-  }
-
-
   useEffect(() => {
     // Check for OAuth token in URL (from Backend Redirect)
     const urlParams = new URLSearchParams(window.location.search);
@@ -158,7 +133,7 @@ const App: React.FC = () => {
       // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }, []);
+  }, [handleLoginSuccess]);
 
   useEffect(() => {
     const token = localStorage.getItem('auth_token');
@@ -167,7 +142,7 @@ const App: React.FC = () => {
       if (email) setCurrentUser({ email });
       fetchUserProfile(token);
     }
-  }, []);
+  }, [fetchUserProfile]);
 
 
   const handleClearSession = async () => {
@@ -640,6 +615,30 @@ const App: React.FC = () => {
       console.error("Failed to toggle privacy", e);
     }
   };
+
+  if (isVerificationPage) {
+    return (
+      <div className="flex h-screen bg-background overflow-hidden text-text font-sans items-center justify-center w-full">
+        <VerifyEmailPage />
+      </div>
+    );
+  }
+
+  if (isResetPage) {
+    return (
+      <div className="flex h-screen bg-background overflow-hidden text-text font-sans items-center justify-center w-full">
+        <ResetPasswordPage />
+      </div>
+    );
+  }
+
+  if (isMagicLinkPage) {
+    return (
+      <div className="flex h-screen bg-background overflow-hidden text-text font-sans items-center justify-center w-full">
+        <MagicLinkPage onLoginSuccess={handleLoginSuccess} />
+      </div>
+    );
+  }
 
   return (
     <GoogleOAuthProvider clientId={(import.meta as any).env.VITE_GOOGLE_CLIENT_ID || ""}>
