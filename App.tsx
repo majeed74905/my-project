@@ -576,6 +576,8 @@ const App: React.FC = () => {
           onDeleteSession={deleteSession} onOpenFeedback={() => setIsFeedbackOpen(true)}
           currentUser={currentUser} onLogin={() => setIsAuthOpen(true)} onLogout={handleLogout}
           onTogglePrivacy={handleTogglePrivacy}
+          autoTheme={systemConfig.autoTheme}
+          onToggleAutoTheme={(enabled) => updateSystemConfig({ autoTheme: enabled })}
         />
         <div className="flex-1 flex flex-col h-full relative w-full overflow-hidden">
           {!isOnline && <div className="bg-orange-500 text-white text-[10px] font-black py-1 px-4 text-center z-50 uppercase tracking-widest animate-slide-in-right">OFFLINE MODE</div>}

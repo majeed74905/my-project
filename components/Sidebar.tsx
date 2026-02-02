@@ -20,6 +20,8 @@ interface SidebarProps {
   onLogin: () => void;
   onLogout: () => void;
   onTogglePrivacy: (enabled: boolean) => void;
+  autoTheme: boolean;
+  onToggleAutoTheme: (enabled: boolean) => void;
 }
 
 const NavItem = ({
@@ -61,7 +63,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentUser,
   onLogin,
   onLogout,
-  onTogglePrivacy
+  onTogglePrivacy,
+  autoTheme,
+  onToggleAutoTheme
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -86,6 +90,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { currentThemeName, setTheme } = useTheme();
 
   const toggleSimpleTheme = () => {
+    // Disable auto-theme when manually overriding
+    if (autoTheme) onToggleAutoTheme(false);
+
     const isLightAligned = ['light', 'glass', 'pastel'].includes(currentThemeName);
     setTheme(isLightAligned ? 'dark' : 'light');
   };
