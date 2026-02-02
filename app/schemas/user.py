@@ -36,6 +36,9 @@ class OTPVerify(BaseModel):
     email: EmailStr
     otp: str
 
+class TokenVerify(BaseModel):
+    token: str
+
 class EmailRequest(BaseModel):
     email: EmailStr
 
