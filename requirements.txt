@@ -24,4 +24,5 @@ pypdf
 pillow
 tabulate
 schedule
+resend
 waitress

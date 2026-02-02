@@ -9,7 +9,7 @@ from app.models import User, EmailVerification, RefreshToken, ActivityLog
 from app.schemas import user as user_schemas, token as token_schemas
 from app.core import security, jwt
 from app.core.config import settings
-from app.services import email as email_service
+from app.email.service import email_service
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 import httpx
@@ -181,11 +181,14 @@ async def google_login_post(
         raise HTTPException(status_code=400, detail=f"Invalid Google token: {str(e)}")
 
 
+# Helper to generate verification token
+def create_verification_token(user_id: int) -> str:
+    return jwt.create_access_token(
+        subject=user_id, 
+        expires_delta=timedelta(hours=24) # 24 hour validity
+    )
 
-def generate_otp(length=6):
-    return ''.join(random.choices(string.digits, k=length))
-
-@router.post("/register", response_model=user_schemas.UserResponse)
+@router.post("/register")
 async def register(
     user_in: user_schemas.UserCreate, 
     background_tasks: BackgroundTasks,
@@ -208,48 +211,47 @@ async def register(
     db.commit()
     db.refresh(user)
 
-    # Generate OTP
-    otp = generate_otp()
-    otp_entry = EmailVerification(
-        user_id=user.id,
-        otp_code=otp,
-        expires_at=datetime.utcnow() + timedelta(minutes=10)
-    )
-    db.add(otp_entry)
-    db.commit()
-
-    # Send Email in background
-    background_tasks.add_task(email_service.send_otp_email, user.email, otp)
+    # Generate Magic Link Token
+    verification_token = create_verification_token(user.id)
+    
+    # Send Email in background (Updated to send Link)
+    background_tasks.add_task(email_service.send_verification_email_link, user.email, verification_token)
 
     # Log Activity
-    log = ActivityLog(user_id=user.id, action="REGISTER", details="User registered")
+    log = ActivityLog(user_id=user.id, action="REGISTER", details="User registered, verification link sent")
     db.add(log)
     db.commit()
     
-    return user
+    return {
+        "message": "User registered successfully. Please check your email for verification link.",
+        "user": user, 
+        "token": verification_token
+    }
 
 @router.post("/verify-email")
 def verify_email(
-    verify_in: user_schemas.OTPVerify,
+    verify_in: user_schemas.TokenVerify, # Changed to TokenVerify
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.email == verify_in.email).first()
+    try:
+        # Decode Token
+        payload = jwt.jwt.decode(verify_in.token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+             raise HTTPException(status_code=400, detail="Invalid token")
+    except jwt.JWTError:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification link")
+
+    user = db.query(User).filter(User.id == int(user_id)).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    otp_record = db.query(EmailVerification).filter(
-        EmailVerification.user_id == user.id,
-        EmailVerification.otp_code == verify_in.otp,
-        EmailVerification.expires_at > datetime.utcnow()
-    ).first()
+    if user.is_verified:
+        return {"msg": "Email already verified"}
 
-    if not otp_record:
-        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
-    
     user.is_verified = True
-    db.delete(otp_record) # Consume OTP
     
-    log = ActivityLog(user_id=user.id, action="EMAIL_VERIFIED", details="Email verified successfully")
+    log = ActivityLog(user_id=user.id, action="EMAIL_VERIFIED", details="Email verified successfully via Link")
     db.add(log)
     db.commit()
 
@@ -268,30 +270,17 @@ def resend_otp(
     if user.is_verified:
         return {"message": "User is already verified"}
     
-    # Generate new OTP
-    otp = generate_otp()
+    # Generate new Link Token
+    verification_token = create_verification_token(user.id)
     
-    # Update or create OTP entry
-    otp_record = db.query(EmailVerification).filter(EmailVerification.user_id == user.id).first()
-    if otp_record:
-        otp_record.otp_code = otp
-        otp_record.expires_at = datetime.utcnow() + timedelta(minutes=10)
-    else:
-        otp_record = EmailVerification(
-            user_id=user.id,
-            otp_code=otp,
-            expires_at=datetime.utcnow() + timedelta(minutes=10)
-        )
-        db.add(otp_record)
+    # Send Email
+    background_tasks.add_task(email_service.send_verification_email_link, user.email, verification_token)
     
-    # Send Email in background
-    background_tasks.add_task(email_service.send_otp_email, user.email, otp)
-    
-    log = ActivityLog(user_id=user.id, action="RESEND_OTP", details="OTP resent")
+    log = ActivityLog(user_id=user.id, action="RESEND_VERIFICATION", details="Verification link resent")
     db.add(log)
     db.commit()
     
-    return {"message": "Verification code resent successfully"}
+    return {"message": "Verification link resent successfully"}
 
 @router.post("/login", response_model=token_schemas.Token)
 async def login(
@@ -385,7 +374,7 @@ def forgot_password(
     db.add(log)
     db.commit()
     
-    return {"msg": "If this email exists, a password reset link has been sent."}
+    return {"msg": "If this email exists, a password reset link has been sent.", "token": reset_token}
 
 @router.post("/reset-password")
 def reset_password(
