@@ -63,7 +63,10 @@ export const VerifyEmailPage: React.FC = () => {
                         <h2 className="text-2xl font-bold text-white mb-2">Verified!</h2>
                         <p className="text-gray-400 mb-6">{message}</p>
                         <button
-                            onClick={() => navigate('/')}
+                            onClick={() => {
+                                navigate('/');
+                                window.location.href = '/';
+                            }}
                             className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg"
                         >
                             Go to Dashboard
@@ -79,7 +82,10 @@ export const VerifyEmailPage: React.FC = () => {
                         <h2 className="text-2xl font-bold text-white mb-2">Verification Failed</h2>
                         <p className="text-gray-400 mb-6">{message}</p>
                         <button
-                            onClick={() => navigate('/')}
+                            onClick={() => {
+                                navigate('/');
+                                window.location.href = '/';
+                            }}
                             className="bg-white/10 hover:bg-white/20 text-white font-bold py-3 px-6 rounded-xl transition-all"
                         >
                             Back to Home

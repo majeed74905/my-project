@@ -31,7 +31,10 @@ export const ResetPasswordPage: React.FC = () => {
             const res = await authService.resetPassword(token, newPassword);
             setStatus('success');
             setMessage(res.msg || 'Password updated successfully!');
-            setTimeout(() => navigate('/'), 3000);
+            setTimeout(() => {
+                navigate('/');
+                window.location.href = '/'; // Hard redirect to clear App state
+            }, 3000);
         } catch (err: any) {
             setStatus('error');
             setMessage(err.message || 'Failed to reset password.');
