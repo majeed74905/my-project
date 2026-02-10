@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './styles/themes.css'; // Import theme variables
 import { ThemeProvider } from './theme/ThemeContext';
+import AnalyticsTracker from './components/AnalyticsTracker';
 
 import { BrowserRouter } from 'react-router-dom';
 
@@ -15,6 +16,7 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <BrowserRouter>
+      <AnalyticsTracker />
       <ThemeProvider>
         <App />
       </ThemeProvider>

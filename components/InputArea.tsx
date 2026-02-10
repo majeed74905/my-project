@@ -1,12 +1,13 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { SendHorizontal, Paperclip, X, Image as ImageIcon, FileText, Loader2, Plus, Square, Info, Pencil, Sparkles, Mic, MicOff, WifiOff } from 'lucide-react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { SendHorizontal, X, FileText, Loader2, Plus, Square, Pencil, Sparkles, Mic, MicOff } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Attachment, Message, ViewMode } from '../types';
 import { validateFile, createAttachment } from '../utils/fileUtils';
 import { getTemplatesForView } from '../constants/templates';
 import { analysisService } from '../services/analysisService';
 
 interface InputAreaProps {
-  onSendMessage: (text: string, attachments: Attachment[]) => void;
+  onSendMessage: (text: string, attachments: Attachment[], analysisContext?: string) => void;
   onStop: () => void;
   isLoading: boolean;
   disabled: boolean;
@@ -16,6 +17,14 @@ interface InputAreaProps {
   viewMode?: ViewMode;
   isEmotionalMode?: boolean;
 }
+
+const PLACEHOLDERS = [
+  "Ask Zara anything…",
+  "Zara is listening…",
+  "Need help? Just type…",
+  "Summarize a document…",
+  "Explain a concept simply…"
+];
 
 export const InputArea: React.FC<InputAreaProps> = ({
   onSendMessage,
@@ -32,48 +41,52 @@ export const InputArea: React.FC<InputAreaProps> = ({
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [analyzedContext, setAnalyzedContext] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const baseTextRef = useRef('');
+
+  // Placeholder rotation logic
+  useEffect(() => {
+    if (isFocused || text.length > 0 || disabled || isLoading) return;
+
+    const interval = setInterval(() => {
+      setPlaceholderIndex((prev) => (prev + 1) % PLACEHOLDERS.length);
+    }, 3500);
+
+    return () => clearInterval(interval);
+  }, [isFocused, text, disabled, isLoading]);
 
   // Handle Paste Events
   useEffect(() => {
     const handlePaste = async (e: ClipboardEvent) => {
-      // Only handle paste if textarea is focused
       if (document.activeElement !== textareaRef.current) return;
 
       const items = e.clipboardData?.items;
       if (!items) return;
 
-      let hasFiles = false;
       const files: File[] = [];
-
       for (let i = 0; i < items.length; i++) {
         if (items[i].kind === 'file') {
           const file = items[i].getAsFile();
-          if (file) {
-            files.push(file);
-            hasFiles = true;
-          }
+          if (file) files.push(file);
         }
       }
 
-      if (hasFiles) {
-        e.preventDefault(); // Prevent pasting the file name or binary text
-
-        // Re-use file selection logic
+      if (files.length > 0) {
+        e.preventDefault();
         for (const file of files) {
           const error = validateFile(file);
-          if (error) {
-            alert(error); // Simple alert for now
-            continue;
-          }
+          if (error) continue;
           try {
             const attachment = await createAttachment(file);
             setAttachments((prev) => [...prev, attachment]);
           } catch (err) { }
         }
 
-        // Trigger analysis
         setIsAnalyzing(true);
         try {
           const result = await analysisService.analyzeFiles(files);
@@ -91,10 +104,6 @@ export const InputArea: React.FC<InputAreaProps> = ({
   }, []);
 
   const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
-  const baseTextRef = useRef('');
-
-  const templates = getTemplatesForView(viewMode as ViewMode);
 
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -104,58 +113,30 @@ export const InputArea: React.FC<InputAreaProps> = ({
       recognition.interimResults = true;
       recognition.lang = 'en-US';
 
-      recognition.onstart = () => {
-        setIsListening(true);
-      };
-
+      recognition.onstart = () => setIsListening(true);
       recognition.onresult = (event: any) => {
         let finalTranscript = '';
         let interimTranscript = '';
-
         for (let i = 0; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
-          }
+          if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
+          else interimTranscript += event.results[i][0].transcript;
         }
-
         const currentTranscript = finalTranscript + interimTranscript;
         const base = baseTextRef.current;
         const spacer = base && !base.endsWith(' ') && currentTranscript ? ' ' : '';
         setText(base + spacer + currentTranscript);
-
-        if (textareaRef.current) {
-          textareaRef.current.style.height = 'auto';
-          textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
-        }
       };
-
-      recognition.onend = () => {
-        setIsListening(false);
-      };
-
-      recognition.onerror = (event: any) => {
-        console.error("Speech recognition error", event.error);
-        setIsListening(false);
-      };
-
+      recognition.onend = () => setIsListening(false);
+      recognition.onerror = () => setIsListening(false);
       recognitionRef.current = recognition;
     }
   }, []);
 
   const toggleListening = () => {
-    if (isOffline) {
-      alert("Voice input requires an internet connection.");
-      return;
-    }
-    if (!recognitionRef.current) {
-      alert("Speech to text is not supported in this browser.");
-      return;
-    }
-    if (isListening) {
-      recognitionRef.current.stop();
-    } else {
+    if (isOffline) return;
+    if (!recognitionRef.current) return;
+    if (isListening) recognitionRef.current.stop();
+    else {
       baseTextRef.current = text;
       recognitionRef.current.start();
     }
@@ -166,15 +147,13 @@ export const InputArea: React.FC<InputAreaProps> = ({
       setText(editMessage.text);
       setAttachments(editMessage.attachments || []);
       baseTextRef.current = editMessage.text;
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-        setTimeout(() => {
-          if (textareaRef.current) {
-            textareaRef.current.style.height = 'auto';
-            textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
-          }
-        }, 0);
-      }
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          textareaRef.current.style.height = 'auto';
+          textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+        }
+      }, 0);
     } else {
       setText('');
       setAttachments([]);
@@ -198,11 +177,7 @@ export const InputArea: React.FC<InputAreaProps> = ({
   const handleSend = () => {
     if ((!text.trim() && attachments.length === 0) || isLoading || disabled) return;
     if (isListening && recognitionRef.current) recognitionRef.current.stop();
-
-    // Combine text with analysis context if available
-    const finalText = analyzedContext ? `${text}\n\n${analyzedContext}` : text;
-
-    onSendMessage(finalText, attachments);
+    onSendMessage(text, attachments, analyzedContext);
     setText('');
     setAttachments([]);
     setAnalyzedContext('');
@@ -213,8 +188,6 @@ export const InputArea: React.FC<InputAreaProps> = ({
     if (isOffline) return;
     if (e.target.files && e.target.files.length > 0) {
       const files = Array.from(e.target.files) as File[];
-
-      // 1. Create UI attachments immediately
       for (const file of files) {
         const error = validateFile(file);
         if (error) continue;
@@ -223,15 +196,12 @@ export const InputArea: React.FC<InputAreaProps> = ({
           setAttachments((prev) => [...prev, attachment]);
         } catch (err) { }
       }
-
-      // 2. Start detailed analysis in background
       setIsAnalyzing(true);
       try {
         const result = await analysisService.analyzeFiles(files);
         setAnalyzedContext(prev => prev + (prev ? "\n" : "") + result.context_text);
       } catch (err) {
         console.error("Analysis failed", err);
-        // Don't block sending, just log error
       } finally {
         setIsAnalyzing(false);
       }
@@ -242,138 +212,322 @@ export const InputArea: React.FC<InputAreaProps> = ({
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   };
 
-  const getPlaceholder = () => {
-    if (disabled) return "Please enter API Key to start";
-    if (isOffline) return "Offline Mode: Search local notes and memory...";
-    if (editMessage) return "Update your message...";
-    if (isListening) return "Listening...";
-    if (isAnalyzing) return "Analyzing uploaded files... (You can keep typing)";
-    if (isEmotionalMode) return "How are you feeling right now? I'm here to listen.";
-    return "Enter a prompt here";
-  };
-
-  const containerRadius = isEmotionalMode ? 'rounded-full' : 'rounded-[2rem]';
-  const containerPadding = isEmotionalMode ? 'px-8' : 'px-6';
-  const borderColor = isEmotionalMode
-    ? 'border-purple-500/40 shadow-[0_0_20px_rgba(139,92,246,0.15)]'
-    : isOffline ? 'border-orange-500/30' : 'border-white/10';
+  const templates = getTemplatesForView(viewMode as ViewMode);
 
   return (
-    <div className="w-full max-w-3xl mx-auto p-4 md:pb-6 relative">
-      {!editMessage && !isLoading && !disabled && !isOffline && !isEmotionalMode && (
-        <div className="flex gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide px-2">
-          {templates.map(tpl => (
-            <button
-              key={tpl.id}
-              onClick={() => setText(tpl.prompt)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-surfaceHighlight border border-white/10 rounded-xl text-xs text-text-sub hover:text-text hover:border-white/20 transition-all whitespace-nowrap shadow-sm group"
-            >
-              <Sparkles className="w-3 h-3 text-text-sub group-hover:text-primary transition-colors" />
-              {tpl.label}
-            </button>
-          ))}
-        </div>
-      )}
+    <div className="w-full max-w-3xl mx-auto px-4 pb-6 md:pb-10 relative z-20">
+      {/* Templates / Suggestions */}
+      <AnimatePresence>
+        {!editMessage && !isLoading && !disabled && !isOffline && !isEmotionalMode && text.length === 0 && !isFocused && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide px-2 justify-center"
+          >
+            {templates.slice(0, 4).map(tpl => (
+              <button
+                key={tpl.id}
+                onClick={() => setText(tpl.prompt)}
+                className="flex items-center gap-2 px-5 py-2.5 bg-white/5 backdrop-blur-md border border-white/10 rounded-full text-sm text-white/50 hover:text-white hover:border-white/30 hover:bg-white/10 transition-all whitespace-nowrap shadow-lg group stardust-bg"
+              >
+                <div className="relative">
+                  {/* Primary Star */}
+                  <motion.div
+                    animate={{
+                      scale: [1, 1.3, 1],
+                      opacity: [0.7, 1, 0.7],
+                      rotate: [0, 10, -10, 0],
+                      filter: [
+                        "drop-shadow(0 0 2px rgba(168,85,247,0.5))",
+                        "drop-shadow(0 0 10px rgba(168,85,247,0.9))",
+                        "drop-shadow(0 0 2px rgba(168,85,247,0.5))"
+                      ]
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                    whileHover={{
+                      rotate: 180,
+                      scale: 1.6,
+                      filter: "drop-shadow(0 0 20px rgba(168,85,247,1))"
+                    }}
+                  >
+                    <Sparkles className="w-4 h-4 text-purple-400" />
+                  </motion.div>
 
+                  {/* Secondary Sparkle */}
+                  <motion.div
+                    animate={{
+                      scale: [0.7, 1.2, 0.7],
+                      opacity: [0.4, 0.9, 0.4],
+                      x: [3, -3, 3],
+                      y: [-3, 3, -3]
+                    }}
+                    transition={{
+                      duration: 2.2,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                      delay: 0.3
+                    }}
+                    className="absolute -top-1.5 -right-1.5 pointer-events-none"
+                  >
+                    <Sparkles className="w-2.5 h-2.5 text-pink-300/70" />
+                  </motion.div>
+
+                  {/* Tertiary Sparkle (Mini) */}
+                  <motion.div
+                    animate={{
+                      scale: [0.5, 1, 0.5],
+                      opacity: [0, 0.7, 0],
+                      x: [-4, 4, -4],
+                      y: [4, -4, 4]
+                    }}
+                    transition={{
+                      duration: 1.8,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                      delay: 0.7
+                    }}
+                    className="absolute -bottom-1 -left-1 pointer-events-none"
+                  >
+                    <Sparkles className="w-2 h-2 text-blue-300/50" />
+                  </motion.div>
+                </div>
+                {tpl.label}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Editing State UI */}
       {editMessage && (
-        <div className="mx-2 mb-3 bg-surfaceHighlight border border-border rounded-2xl p-4 flex items-start gap-3 animate-fade-in shadow-xl">
-          <div className="bg-primary/10 p-2 rounded-full text-primary mt-0.5">
-            <Pencil className="w-4 h-4" />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="mx-4 mb-4 bg-white/5 backdrop-blur-2xl border border-purple-500/30 rounded-3xl p-5 flex items-start gap-4 shadow-[0_0_30px_rgba(168,85,247,0.15)]"
+        >
+          <div className="bg-purple-500/20 p-2.5 rounded-full text-purple-400">
+            <Pencil className="w-5 h-5" />
           </div>
           <div className="flex-1">
-            <div className="flex justify-between items-start">
-              <span className="text-sm font-bold text-primary flex items-center gap-2">
-                Editing message
-                <button onClick={onCancelEdit} className="bg-surface border border-border rounded-full p-0.5 text-text-sub hover:text-text"><X className="w-3.5 h-3.5" /></button>
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-bold text-purple-300 flex items-center gap-2 uppercase tracking-widest">
+                Editing Mode
               </span>
+              <button onClick={onCancelEdit} className="hover:bg-white/10 p-1.5 rounded-full text-white/40 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <p className="text-xs text-text-sub mt-1">Changes will restart the conversation from this point.</p>
+            <p className="text-xs text-white/60 mt-1">Updates will re-route the internal conversation context.</p>
           </div>
-        </div>
+        </motion.div>
       )}
 
-      <div className={`relative bg-surface/40 backdrop-blur-xl border transition-all focus-within:ring-2 focus-within:ring-purple-500/20 shadow-2xl flex flex-col ${containerRadius} ${borderColor}`}>
-
-        {attachments.length > 0 && (
-          <div className="flex gap-3 p-4 pb-2 overflow-x-auto">
-            {attachments.map((att) => (
-              <div key={att.id} className="relative group flex-shrink-0">
-                <div className="w-16 h-16 rounded-xl overflow-hidden border border-white/5 bg-background">
-                  {att.mimeType.startsWith('image/') ? <img src={att.previewUrl} alt="preview" className="w-full h-full object-cover" /> : <FileText className="w-full h-full p-4 text-text-sub" />}
+      {/* Main Input Box Wrapper with Neon Glow */}
+      <motion.div
+        animate={{
+          scale: isFocused ? 1.01 : 1,
+          boxShadow: isFocused
+            ? (isEmotionalMode
+              ? "0 0 50px rgba(168,85,247,0.3), 0 0 100px rgba(236,72,153,0.15)"
+              : "0 0 40px rgba(168,85,247,0.25), 0 0 100px rgba(236,72,153,0.1)")
+            : "0 0 20px rgba(0,0,0,0.3)"
+        }}
+        transition={{ duration: 0.3 }}
+        className={`relative flex flex-col glass-morphism ${isEmotionalMode ? 'rounded-full border-purple-500/30' : 'rounded-[2rem] border-white/10'} border overflow-hidden transition-all bg-black/40 backdrop-blur-3xl`}
+      >
+        {/* Attachment Ribbon */}
+        <AnimatePresence>
+          {(attachments.length > 0 || isAnalyzing) && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="flex gap-4 p-5 pb-1 overflow-x-auto scrollbar-hide"
+            >
+              {attachments.map((att) => (
+                <motion.div
+                  key={att.id}
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="relative group flex-shrink-0"
+                >
+                  <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-white/10 bg-white/5 hover:border-purple-500/50 transition-colors">
+                    {att.mimeType.startsWith('image/') ? (
+                      <img src={att.previewUrl} alt="preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center p-2 text-white/40">
+                        <FileText className="w-8 h-8 mb-1" />
+                        <span className="text-[9px] uppercase tracking-tighter truncate w-full text-center">{att.file.name}</span>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => removeAttachment(att.id)}
+                    className="absolute -top-2 -right-2 bg-pink-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </motion.div>
+              ))}
+              {isAnalyzing && (
+                <div className="flex flex-col items-center justify-center px-4 bg-white/5 rounded-2xl animate-pulse min-w-[80px]">
+                  <Loader2 className="w-6 h-6 animate-spin text-purple-400 mb-1" />
+                  <span className="text-[10px] text-white/30 uppercase font-bold">Parsing</span>
                 </div>
-                <button onClick={() => removeAttachment(att.id)} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-3 h-3" /></button>
-              </div>
-            ))}
-            {isAnalyzing && (
-              <div className="flex items-center justify-center p-4 bg-surfaceHighlight/20 rounded-xl animate-pulse">
-                <Loader2 className="w-5 h-5 animate-spin text-primary" />
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        <div className={`flex items-center gap-2 ${containerPadding} py-2`}>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className={`p-2 -ml-2 rounded-full transition-colors ${isOffline ? 'text-gray-600' : 'text-text-sub hover:text-text hover:bg-surfaceHighlight'}`}
-            disabled={disabled || isLoading || isOffline}
-          >
-            <Plus className="w-6 h-6" />
-          </button>
-          <input
-            type="file"
-            multiple
-            ref={fileInputRef}
-            className="hidden"
-            onChange={handleFileSelect}
-          // accept="image/*,application/pdf,text/*" 
-          // Removed strict accept to allow all files for backend analysis
-          />
-
-          <textarea
-            ref={textareaRef}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={getPlaceholder()}
-            disabled={disabled}
-            className={`flex-1 bg-transparent text-text placeholder-text-sub/50 text-[16px] resize-none py-4 focus:outline-none max-h-[160px] overflow-y-auto transition-colors`}
-            rows={1}
-          />
-
-          <div className="flex items-center gap-1">
-            {isEmotionalMode && <div className="w-px h-6 bg-white/10 mx-2" />}
-
+        <div className="flex items-end gap-3 px-6 py-2">
+          {/* Action Icons */}
+          <div className="flex items-center mb-1">
             <button
-              onClick={toggleListening}
-              className={`p-2 rounded-full transition-all ${isListening ? 'text-purple-400 animate-pulse' : 'text-text-sub hover:text-text'}`}
+              onClick={() => fileInputRef.current?.click()}
+              className={`p-2.5 rounded-full transition-all bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 active:scale-90 ${isOffline ? 'opacity-20 pointer-events-none' : 'text-white/60 hover:text-white'}`}
               disabled={disabled || isLoading || isOffline}
             >
-              {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+              <Plus className="w-6 h-6" />
             </button>
+            <input type="file" multiple ref={fileInputRef} className="hidden" onChange={handleFileSelect} />
+          </div>
+
+          {/* Text Area Content */}
+          <div className="relative flex-1 min-h-[56px] flex items-center">
+            <textarea
+              ref={textareaRef}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              disabled={disabled}
+              className={`w-full bg-transparent text-white placeholder-transparent text-[16px] leading-relaxed resize-none py-3.5 focus:outline-none max-h-[200px] overflow-y-auto custom-scrollbar relative z-10`}
+              rows={1}
+            />
+
+            {/* Animated Placeholder Text */}
+            <AnimatePresence mode="wait">
+              {text.length === 0 && !isFocused && (
+                <motion.div
+                  key={placeholderIndex}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 0.5, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute left-0 text-white/50 pointer-events-none select-none text-[16px] italic"
+                >
+                  {isEmotionalMode
+                    ? "How are you feeling right now? I'm here to listen."
+                    : (disabled ? "System initialization needed..." : PLACEHOLDERS[placeholderIndex])
+                  }
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {isOffline && text.length === 0 && !isFocused && (
+              <div className="absolute left-0 text-orange-400/50 italic text-[16px] pointer-events-none">Offline - Accessing Local Knowledge...</div>
+            )}
+          </div>
+
+          {/* Controls */}
+          <div className="flex items-center gap-2 mb-1">
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={toggleListening}
+              className={`p-2.5 rounded-full transition-all border border-white/5 ${isListening ? 'bg-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.5)]' : 'bg-white/5 text-white/60 hover:text-white hover:bg-white/10'}`}
+              disabled={disabled || isLoading || isOffline}
+            >
+              {isListening ? (
+                <div className="relative">
+                  <MicOff className="w-5 h-5" />
+                  <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                  </span>
+                </div>
+              ) : <Mic className="w-5 h-5" />}
+            </motion.button>
 
             {isLoading || isAnalyzing ? (
-              <button onClick={onStop} className="p-2 rounded-full text-text hover:text-red-400">
-                {isAnalyzing ? <Loader2 className="w-5 h-5 animate-spin text-primary" /> : <Square className="w-5 h-5 fill-current" />}
-              </button>
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={onStop}
+                className="p-2.5 rounded-full bg-pink-500/20 text-pink-400 border border-pink-500/30 group"
+              >
+                {isAnalyzing ? <Loader2 className="w-6 h-6 animate-spin" /> : <Square className="w-6 h-6 fill-current group-hover:scale-90 transition-transform" />}
+              </motion.button>
             ) : (
-              <button
+              <motion.button
+                whileHover={text.trim() || attachments.length > 0 ? { scale: 1.1 } : {}}
+                whileTap={text.trim() || attachments.length > 0 ? { scale: 0.95 } : {}}
                 onClick={handleSend}
                 disabled={(!text.trim() && attachments.length === 0) || disabled}
-                className={`p-2 rounded-full transition-all ${(!text.trim() && attachments.length === 0) ? 'text-text-sub/20' : 'text-text hover:scale-110 active:scale-95'}`}
+                className={`p-3 rounded-full transition-all shadow-lg ${(!text.trim() && attachments.length === 0)
+                  ? 'bg-white/5 text-white/10 border border-white/5'
+                  : 'bg-gradient-to-tr from-purple-600 to-pink-600 text-white border-none shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:shadow-[0_0_30px_rgba(168,85,247,0.6)]'}`}
               >
-                <SendHorizontal className="w-6 h-6" />
-              </button>
+                <SendHorizontal className={`w-6 h-6 ${text.trim() ? 'animate-pulse-slow' : ''}`} />
+              </motion.button>
             )}
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="text-center mt-4">
-        <p data-nosnippet className="text-[11px] text-text-sub/40 leading-relaxed px-4">
+      {/* Compliance / Footer Text */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1 }}
+        className="text-center mt-5"
+      >
+        <p data-nosnippet className="text-[11px] text-white/20 leading-relaxed px-4">
           Zara AI may display inaccurate info, including about people, so double-check its responses.
         </p>
-      </div>
+      </motion.div>
+
+      <style>{`
+        .glass-morphism {
+          background: rgba(10, 10, 10, 0.4);
+          backdrop-filter: blur(40px);
+          -webkit-backdrop-filter: blur(40px);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 10px;
+        }
+        @keyframes pulse-slow {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.05); opacity: 0.9; }
+        }
+        .animate-pulse-slow {
+          animation: pulse-slow 3s infinite ease-in-out;
+        }
+        .stardust-bg {
+          background-image: 
+            radial-gradient(1px 1px at 20% 30%, white, rgba(0,0,0,0)),
+            radial-gradient(1px 1px at 40% 70%, white, rgba(0,0,0,0)),
+            radial-gradient(1px 1px at 80% 40%, white, rgba(0,0,0,0));
+          background-size: 200% 200%;
+          animation: stardust 4s infinite linear;
+        }
+        @keyframes stardust {
+          0% { background-position: 0% 0%; }
+          100% { background-position: 100% 100%; }
+        }
+      `}</style>
     </div>
   );
 };

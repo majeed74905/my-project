@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense, lazy } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { trackEvent, identifyUser } from './services/analytics';
+import { motion, AnimatePresence } from 'framer-motion';
 import { VerifyEmailPage } from './VerifyEmailPage';
 import { ResetPasswordPage } from './ResetPasswordPage';
 import { MagicLinkPage } from './MagicLinkPage';
@@ -96,6 +98,8 @@ const App: React.FC = () => {
     localStorage.setItem('auth_token', token);
     localStorage.setItem('auth_email', email);
     setCurrentUser({ email });
+    identifyUser(email); // Identify user in analytics
+    trackEvent('login', { method: 'token' });
     fetchUserProfile(token);
     setIsAuthOpen(false);
   }, [fetchUserProfile]);
@@ -121,6 +125,7 @@ const App: React.FC = () => {
   const handleLogout = () => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_email');
+    trackEvent('logout');
     setCurrentUser(null);
     clearCurrentSession();
     setMessages([]);
@@ -142,6 +147,7 @@ const App: React.FC = () => {
   const handleViewChange = useCallback((view: ViewMode) => {
     setCurrentView(view);
     updateView(view);
+    trackEvent('view_change', { view });
     if (view === 'settings') setIsSettingsOpen(true);
     setIsSidebarOpen(false);
   }, [updateView]);
@@ -157,7 +163,12 @@ const App: React.FC = () => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<boolean>(false);
 
-  const handleSendMessage = async (text: string, attachments: Attachment[]) => {
+  const handleSendMessage = async (text: string, attachments: Attachment[], analysisContext?: string) => {
+    trackEvent('chat_send', {
+      has_attachments: attachments.length > 0,
+      view: currentView,
+      config: chatConfig.model
+    });
     if (isLoading) return;
     abortRef.current = false;
     let historyToUse = messages;
@@ -178,7 +189,8 @@ const App: React.FC = () => {
       const { text: finalText, sources } = await sendMessageToGeminiStream(
         historyToUse, text, attachments, chatConfig, personalization,
         (partial) => { if (!abortRef.current) setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: partial } : m)); },
-        undefined, async () => "Verified"
+        undefined, async () => "Verified",
+        analysisContext
       );
       if (abortRef.current) return;
       const finalBotMsg = { ...initialBotMsg, text: finalText, sources, isStreaming: false };
@@ -229,23 +241,105 @@ const App: React.FC = () => {
       default:
         return (
           <div className={`flex-1 flex flex-col h-full relative transition-all duration-500 ${chatConfig.isEmotionalMode ? 'bg-[#0f0821]' : ''}`}>
-            <header className="flex items-center justify-between px-4 py-3 border-b border-white/5 z-30 sticky top-0 backdrop-blur-md">
-              <div className="flex items-center gap-2"><button onClick={() => setIsSidebarOpen(true)} className="md:hidden"><Menu /></button><ChatControls config={chatConfig} setConfig={setChatConfig} currentSession={currentSessionId ? sessions.find(s => s.id === currentSessionId) || null : null} /></div>
+            <header className="flex items-center justify-between px-6 py-4 border-b border-white/5 z-30 sticky top-0 backdrop-blur-3xl bg-background/20">
               <div className="flex items-center gap-2">
-                {currentUser && <button onClick={() => handleTogglePrivacy(!currentUser.is_privacy_mode)} className="p-2">{currentUser.is_privacy_mode ? <EyeOff className="text-orange-400" /> : <Eye />}</button>}
-                <button onClick={() => setChatConfig(p => ({ ...p, isEmotionalMode: !p.isEmotionalMode }))} className="p-2"><Heart className={chatConfig.isEmotionalMode ? 'fill-purple-400 text-purple-400' : ''} /></button>
-                <button onClick={() => setChatConfig(p => ({ ...p, useGrounding: !p.useGrounding }))} className="p-2"><Globe className={chatConfig.useGrounding ? 'text-blue-400' : ''} /></button>
-                <button onClick={() => setChatConfig(p => ({ ...p, useThinking: !p.useThinking }))} className="p-2"><Brain className={chatConfig.useThinking ? 'text-purple-400' : ''} /></button>
+                <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 hover:bg-white/5 rounded-full"><Menu /></button>
+                <ChatControls config={chatConfig} setConfig={setChatConfig} currentSession={currentSessionId ? sessions.find(s => s.id === currentSessionId) || null : null} />
+              </div>
+              <div className="flex items-center gap-3">
+                {currentUser && (
+                  <button
+                    onClick={() => handleTogglePrivacy(!currentUser.is_privacy_mode)}
+                    className={`p-2.5 rounded-full transition-all border border-white/5 ${currentUser.is_privacy_mode ? 'bg-orange-500/10 text-orange-400 border-orange-500/20 shadow-[0_0_15px_rgba(251,146,60,0.2)]' : 'bg-white/5 text-white/40 hover:text-white'}`}
+                  >
+                    {currentUser.is_privacy_mode ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                )}
+                <button
+                  onClick={() => setChatConfig(p => ({ ...p, isEmotionalMode: !p.isEmotionalMode }))}
+                  className={`p-2.5 rounded-full transition-all border border-white/5 ${chatConfig.isEmotionalMode ? 'bg-purple-500/10 text-purple-400 border-purple-500/20 shadow-[0_0_20px_rgba(168,85,247,0.3)]' : 'bg-white/5 text-white/40 hover:text-white'}`}
+                >
+                  <Heart className={`w-5 h-5 ${chatConfig.isEmotionalMode ? 'fill-current' : ''}`} />
+                </button>
+                <button
+                  onClick={() => setChatConfig(p => ({ ...p, useGrounding: !p.useGrounding }))}
+                  className={`p-2.5 rounded-full transition-all border border-white/5 ${chatConfig.useGrounding ? 'bg-blue-500/10 text-blue-400 border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.2)]' : 'bg-white/5 text-white/40 hover:text-white'}`}
+                >
+                  <Globe className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setChatConfig(p => ({ ...p, useThinking: !p.useThinking }))}
+                  className={`p-2.5 rounded-full transition-all border border-white/5 ${chatConfig.useThinking ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'bg-white/5 text-white/40 hover:text-white'}`}
+                >
+                  <Brain className="w-5 h-5" />
+                </button>
               </div>
             </header>
-            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
-              <div className="max-w-3xl mx-auto py-6 space-y-2 px-4 md:px-0">
+            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto flex flex-col">
+              <div className="max-w-3xl mx-auto py-6 space-y-2 px-4 md:px-0 flex-1 flex flex-col justify-center">
                 {messages.length === 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center py-20 text-center animate-fade-in">
-                    <div onClick={() => { setIsFlipping(true); setTimeout(() => setIsFlipping(false), 1000); }} className={`w-28 h-28 border rounded-[2rem] flex items-center justify-center mb-8 shadow-2xl relative bg-surfaceHighlight/30 border-white/10 ${isFlipping ? 'animate-flip-3d' : 'animate-float'}`}><Sparkles className="w-14 h-14 text-primary" /></div>
-                    <h1 className="text-6xl font-black mb-4 tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-400">Zara AI</h1>
-                    <p className="text-text-sub/60">How can I assist you today?</p>
-                  </div>
+                  chatConfig.isEmotionalMode ? (
+                    <div className="flex flex-col items-center justify-center py-10 text-center animate-fade-in space-y-8">
+                      {/* High Fidelity Zara Care Heart Box */}
+                      <div className="w-32 h-32 bg-[#1a1033] border border-purple-500/20 rounded-[2.5rem] flex items-center justify-center shadow-[0_0_50px_rgba(168,85,247,0.15)] relative group overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <motion.div
+                          animate={{
+                            scale: [1, 1.1, 1],
+                            filter: ["drop-shadow(0 0 5px rgba(168,85,247,0))", "drop-shadow(0 0 15px rgba(168,85,247,0.5))", "drop-shadow(0 0 5px rgba(168,85,247,0))"]
+                          }}
+                          transition={{ duration: 3, repeat: Infinity }}
+                        >
+                          <Heart className="w-16 h-16 text-purple-400 stroke-[1.5]" />
+                        </motion.div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <h2 className="text-xl font-medium text-white/80">Hello, I'm</h2>
+                        <h1 className="text-7xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-300">
+                          Zara Care
+                        </h1>
+                        <p className="text-2xl font-medium text-white/90">
+                          I'm listening. How are you feeling?
+                        </p>
+                      </div>
+
+                      {/* Emotional Support Badge */}
+                      <div className="flex items-center gap-2 px-4 py-2 bg-purple-500/10 border border-purple-500/20 rounded-full">
+                        <Heart className="w-4 h-4 fill-purple-400 text-purple-400" />
+                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-purple-300">Emotional Support Active</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-10 text-center animate-fade-in space-y-8">
+                      {/* High Fidelity Zara AI Sparkles Box */}
+                      <motion.div
+                        onClick={() => { setIsFlipping(true); setTimeout(() => setIsFlipping(false), 1000); }}
+                        animate={{
+                          scale: [1, 1.05, 1],
+                          rotateY: isFlipping ? 360 : 0
+                        }}
+                        transition={{
+                          scale: { duration: 4, repeat: Infinity, ease: "easeInOut" },
+                          rotateY: { duration: 0.8, ease: "easeInOut" }
+                        }}
+                        className={`w-32 h-32 bg-[#121214] border border-white/5 rounded-[2.5rem] flex items-center justify-center shadow-[0_0_40px_rgba(168,85,247,0.1)] relative group cursor-pointer overflow-hidden`}
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/5 to-transparent opacity-50" />
+                        <Sparkles className="w-16 h-16 text-purple-400 stroke-[1.5]" />
+                      </motion.div>
+
+                      <div className="space-y-4">
+                        <h2 className="text-xl font-medium text-white/60">Hello, I'm</h2>
+                        <h1 className="text-7xl font-black tracking-tighter text-[#a78bfa]">
+                          Zara AI
+                        </h1>
+                        <p className="text-2xl font-medium text-white">
+                          What would you like to do?
+                        </p>
+                      </div>
+                    </div>
+                  )
                 ) : messages.map(msg => <MessageItem key={msg.id} message={msg} onEdit={setEditingMessage} onRegenerate={() => { }} onLike={() => { }} onDislike={() => { }} onShare={() => { }} onBranch={() => { }} />)}
               </div>
             </div>

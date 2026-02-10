@@ -36,7 +36,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Add new theme class
     root.classList.add(`theme-${currentThemeName}`);
-    
+
     // Add 'dark' class if the theme is dark-based (for Tailwind dark: modifier compat if needed)
     // We assume 'glass', 'light', 'pastel' are light, rest are dark.
     const isDark = !['light', 'glass', 'pastel'].includes(currentThemeName);
@@ -48,9 +48,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Apply specific Body Gradient if exists (Dynamic CSS injection)
     // We update a custom property or specific style block
     if (themeConfig.gradientOverlay) {
-        document.body.style.setProperty('--gradient-overlay', themeConfig.gradientOverlay);
+      document.body.style.setProperty('--gradient-overlay', themeConfig.gradientOverlay);
     } else {
-        document.body.style.setProperty('--gradient-overlay', 'none');
+      document.body.style.setProperty('--gradient-overlay', 'none');
     }
 
   }, [currentThemeName]);

@@ -66,22 +66,41 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 4): Promise<T> {
 }
 
 export const ZARA_CORE_IDENTITY = `
-**IDENTITY: Zara AI — Developed by Mohammed Majeed**
-You are a highly advanced, empathetic, and professional AI companion.
+## 🔰 CORE IDENTITY
+You are **ZARA AI**, a premium, production-ready AI assistant designed for a modern SaaS application.
+You behave like a **human-centric, calm, professional AI**, similar to ChatGPT’s interface and interaction quality.
+You are NOT a chatbot demo. You are a **real product feature**.
 
-**CONVERSATIONAL MIRRORING PROTOCOL (CRITICAL):**
-1. **Mirroring**: Mirror the user's greeting style and formality level exactly as they initiate contact.
-2. **Language/Dialect Match**: Automatically detect and respond in the EXACT same language or dialect the user uses (English, Tamil, Tanglish, Hindi, etc.). 
-   - If user says "hi nanba" (Tanglish casual), respond with "hi nanba eppadi irukka? 🙌"
-   - If user says "hi machi" (Close friend tone), respond with "hi machi eppadi irukka? 😄"
-3. **Emojis**: Add relevant and contextually appropriate emojis that match the tone (not generic).
-4. **Natural Tone**: Keep responses concise, human, and natural. Avoid robotic, overly formal, or "transactional" language unless the user starts that way.
+## 🎨 UI / UX AWARENESS
+- **UI-Silent**: The UI handles previews and buttons. Chat is for **conversation**, not raw data.
+- **Responses**: Short by default, clean, readable, and human-like.
+- **No Overload**: Never repeat user's questions or dump raw data.
+- **Emojis**: Use sparsely. Max 1 (optional).
 
-**GITHUB ARCHITECT PROTOCOL:**
-You are a Senior Software Architect and Technical Communications Expert. Analyze repositories and generate:
-### OUTPUT 1: TECHNICAL DOCUMENTATION (Markdown)
-### OUTPUT 2: ARCHITECTURE FLOWCHART (Mermaid.js)
-### OUTPUT 3: AUDIO OVERVIEW SCRIPT (Podcast Format)
+## ❤️ ZARA CARE LAYER
+- **Purpose**: Support, guide, and reduce frustration.
+- **Activation**: If the user seems confused, frustrated, or asks vague questions.
+- **Style**: Calm, reassuring, and clear next steps (e.g., "No worries — I can help with that. Try asking what you want to know from the file.").
+
+## 💬 CHAT BEHAVIOR
+- **Tone**: Friendly, calm, professional. Not robotic or over-excited.
+- **Language**: Adapt naturally to user's language/dialect without announcing it.
+- **Developer**: Zara AI was developed by Mohammed Majeed.
+`;
+
+export const ZARA_DOC_INTEL_IDENTITY = `
+${ZARA_CORE_IDENTITY}
+
+## � SILENT FILE INTELLIGENCE
+- **Ingestion**: Analyze files **silently**. Build internal understanding without technical jargon (no "text extracted").
+- **Ingestion Limit**: NEVER print extracted text, page contents, or raw paragraphs unless explicitly asked ("Extract the text", "Show page 2").
+- **First Response**: If a file is uploaded without text, say: "File received. What would you like to do?"
+- **Answer Quality**: Search ONLY inside files. Answer naturally. If missing, say: "That information isn’t available in the uploaded file."
+
+## 🧠 SMART ACTION BUTTONS
+- **Explain simply**: Plain language, beginner-friendly.
+- **Summarize**: Concise bullet points, no text-dumps.
+- **Rewrite**: Professional, polished, formal structure.
 `;
 
 // Added MEDIA_PLAYER_TOOL definition for function calling in Live API
@@ -112,7 +131,7 @@ export const MEDIA_PLAYER_TOOL: FunctionDeclaration = {
   },
 };
 
-export const buildSystemInstruction = (personalization?: PersonalizationConfig, activePersona?: Persona, isEmotionalMode?: boolean): string => {
+export const buildSystemInstruction = (personalization?: PersonalizationConfig, activePersona?: Persona, isEmotionalMode?: boolean, hasFiles: boolean = false): string => {
   const memoryContext = memoryService.getContextString(5);
   const now = new Date();
 
@@ -122,10 +141,33 @@ export const buildSystemInstruction = (personalization?: PersonalizationConfig, 
 - **Current Time**: ${now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
 - **Timezone**: Indian Standard Time (IST)`;
 
-  let instruction = ZARA_CORE_IDENTITY;
+  let instruction = hasFiles ? ZARA_DOC_INTEL_IDENTITY : ZARA_CORE_IDENTITY;
+
+  if (isEmotionalMode) {
+    instruction += `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MODE: ZARA CARE (ACTIVE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Purpose: Emotional support, Stress handling, Safe conversations.
+STRICT RULES:
+- LANGUAGE: Respond EXCLUSIVELY in the user's native language or dialect (Tamil, Tanglish, Hindi, etc.). This is mandatory.
+- No slang (no machi, da, bro, nanba). No playful tone.
+- Emojis: 0 or max 1. Calm, respectful, reassuring voice only.
+- Behavior Flow: 1. Acknowledge -> 2. Validate -> 3. Ask one gentle question.
+- Crisis: If self-harm/suicidal thoughts, stay calm, acknowledge pain, encourage external support. NEVER act as sole support.
+`;
+  } else {
+    instruction += `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MODE: NORMAL CHAT (ACTIVE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Purpose: ${hasFiles ? 'Document Analysis & Intelligence' : 'Friendly conversation. Warm, playful, friendly. Mirror slang.'} 
+${hasFiles ? 'Strictly follow Document Intelligence rules.' : '1-2 emojis max.'}
+`;
+  }
+
   if (activePersona) instruction += `\nROLEPLAY: ${activePersona.name}. ${activePersona.systemPrompt}`;
   instruction += `\n\n${realTimeContext}`;
-  if (isEmotionalMode) instruction += `\n\nEMOTIONAL ENGINE: Prioritize extreme empathy.`;
   if (memoryContext) instruction += `\n**MEMORY:**\n${memoryContext}`;
   if (personalization?.nickname) instruction += `\n**USER:** ${personalization.nickname}.`;
 
@@ -140,16 +182,18 @@ export const sendMessageToGeminiStream = async (
   personalization: PersonalizationConfig,
   onUpdate: (text: string) => void,
   activePersona?: Persona,
-  onIdentityAction?: (action: 'verify' | 'logout', data?: string) => Promise<string>
+  onIdentityAction?: (action: 'verify' | 'logout', data?: string) => Promise<string>,
+  analysisContext?: string
 ): Promise<{ text: string; sources: Source[] }> => {
 
-  // -- NEW BACKEND ROUTING LOGIC --
-  // We intercept the chat request and send it to our secure backend
-  // The backend handles the routing to Groq or Gemini based on config.model
+  const hasFiles = attachments.length > 0;
 
+  // -- NEW BACKEND ROUTING LOGIC --
   if (config.model === 'zara-fast' || config.model === 'zara-pro' || config.model === 'zara-eco') {
     try {
-      const result = await sendMessageToBackend(newMessage, config.model);
+      const mode = config.isEmotionalMode ? 'care' : 'chat';
+      const promptToBackend = analysisContext ? `${newMessage}\n\n${analysisContext}` : newMessage;
+      const result = await sendMessageToBackend(promptToBackend, config.model, mode);
 
       // Simulate streaming for UI smoothness (optional but nice)
       const text = result.response;
@@ -172,7 +216,10 @@ export const sendMessageToGeminiStream = async (
 
   const ai = getAI();
   const currentParts: Part[] = attachments.map(att => ({ inlineData: { mimeType: att.mimeType, data: att.base64 } }));
-  currentParts.push({ text: newMessage || " " });
+
+  // Combine user message with hidden analysis context for client-side Gemini call
+  const promptToGemini = analysisContext ? `${newMessage || " "}\n\n${analysisContext}` : (newMessage || " ");
+  currentParts.push({ text: promptToGemini });
 
   const contents: Content[] = [...history.slice(-8).map(m => ({ role: m.role, parts: [{ text: m.text }] })), { role: Role.USER, parts: currentParts }];
 
@@ -180,7 +227,7 @@ export const sendMessageToGeminiStream = async (
     const stream = await withRetry(() => ai.models.generateContentStream({
       model: 'models/gemini-1.5-pro-latest', // Updated to latest supported model
       contents,
-      config: { systemInstruction: buildSystemInstruction(personalization, activePersona, config.isEmotionalMode), safetySettings: SAFETY_SETTINGS }
+      config: { systemInstruction: buildSystemInstruction(personalization, activePersona, config.isEmotionalMode, hasFiles || !!analysisContext), safetySettings: SAFETY_SETTINGS }
     })) as AsyncIterable<GenerateContentResponse>;
 
     let fullText = '';
