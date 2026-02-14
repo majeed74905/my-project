@@ -1,4 +1,3 @@
 User-agent: *
 Allow: /
-
 Sitemap: https://zara-ai-assist.netlify.app/sitemap.xml
