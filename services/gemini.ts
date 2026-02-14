@@ -19,13 +19,11 @@ export const getAI = () => {
   if (!apiKey) {
     throw new Error('API_KEY is not defined. Please check your .env file and restart the dev server.');
   }
-  return new GoogleGenAI({ apiKey }); // v1 is standard default in this SDK version, or we can explicit set client options if needed. 
-  // However, the prompt specifically asks to "Replace ALL Gemini API calls from `v1beta` to `v1`".
-  // The @google/genai SDK usually targets the latest API version. 
-  // To be safe and compliant with the "models/..." naming convention which is standard in v1/v1beta:
-  // We will simply use the requested model name which often routes correctly.
-  // Note: The newer @google/genai SDK doesn't take 'apiVersion' in the top level config object easily in all versions, 
-  // but let's stick to the prompt's main request about the MODEL name which fixes the 404.
+  // @ts-ignore
+  return new GoogleGenAI({
+    apiKey,
+    // apiVersion: 'v1' - Reverting to default (v1beta) as v1 might not support all 2.0 features in JS SDK yet
+  });
 };
 
 const SAFETY_SETTINGS = [
@@ -34,6 +32,9 @@ const SAFETY_SETTINGS = [
   { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_LOW_AND_ABOVE },
   { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_LOW_AND_ABOVE },
 ];
+
+// Define the default model to use - defaulting to 1.5-flash for better stability and free tier limits
+const DEFAULT_MODEL = 'models/gemini-2.0-flash';
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -210,6 +211,9 @@ export const sendMessageToGeminiStream = async (
     }
   }
 
+  // Define the default model to use - defaulting to 1.5-flash for better stability and free tier limits
+  // const DEFAULT_MODEL = 'models/gemini-1.5-flash'; // Usage of global DEFAULT_MODEL instead
+
   // --- LEGACY/FALLBACK LOGIC (Client-side Gemini) --- 
   // Kept for other modes like "Student", "Code", "Github" if they rely on specific Gemini features not yet ported
   // Or if using raw gemini models directly (though UI now enforces zara-* models)
@@ -225,7 +229,7 @@ export const sendMessageToGeminiStream = async (
 
   try {
     const stream = await withRetry(() => ai.models.generateContentStream({
-      model: 'models/gemini-1.5-pro-latest', // Updated to latest supported model
+      model: DEFAULT_MODEL, // Updated to 1.5-flash for stability
       contents,
       config: { systemInstruction: buildSystemInstruction(personalization, activePersona, config.isEmotionalMode, hasFiles || !!analysisContext), safetySettings: SAFETY_SETTINGS }
     })) as AsyncIterable<GenerateContentResponse>;
@@ -250,7 +254,7 @@ export const analyzeGithubRepo = async (url: string, mode: string, manifest?: st
   const prompt = `Analyze this GitHub Repository: ${url}\n\nRepository Structure/Manifest Provided:\n${manifest || "Not available (Infer from URL/Knowledge base)"}\n\nPlease follow the GITHUB ARCHITECT PROTOCOL to generate Output 1 (Docs), Output 2 (Mermaid), and Output 3 (Podcast Script).`;
 
   const response = await withRetry(() => ai.models.generateContent({
-    model: 'models/gemini-1.5-pro-latest',
+    model: DEFAULT_MODEL,
     contents: prompt,
     config: {
       systemInstruction: ZARA_CORE_IDENTITY,
@@ -280,7 +284,7 @@ export const sendGithubChatStream = async (
   ];
 
   const stream = await withRetry(() => ai.models.generateContentStream({
-    model: 'models/gemini-1.5-pro-latest',
+    model: DEFAULT_MODEL,
     contents,
     config: { systemInstruction }
   })) as AsyncIterable<GenerateContentResponse>;
@@ -300,7 +304,7 @@ export const sendAppBuilderStream = async (history: Message[], newMessage: strin
   const currentParts: Part[] = attachments.map(att => ({ inlineData: { mimeType: att.mimeType, data: att.base64 } }));
   currentParts.push({ text: newMessage || " " });
   const stream = await withRetry(() => ai.models.generateContentStream({
-    model: 'models/gemini-1.5-pro-latest',
+    model: DEFAULT_MODEL,
     contents: [...history.slice(-5).map(m => ({ role: m.role, parts: [{ text: m.text }] })), { role: Role.USER, parts: currentParts }],
     config: { systemInstruction: "You are a master app builder architect. Follow the CONVERSATIONAL MIRRORING PROTOCOL." }
   })) as AsyncIterable<GenerateContentResponse>;
@@ -313,27 +317,32 @@ export const sendAppBuilderStream = async (history: Message[], newMessage: strin
 };
 
 export const generateAppReliabilityReport = async (vfs: VFS) => {
-  const ai = getAI();
-  const response = await withRetry(() => ai.models.generateContent({ model: 'models/gemini-1.5-pro-latest', contents: `Audit reliability for app:\n${JSON.stringify(vfs)}` })) as GenerateContentResponse;
-  return response.text || "";
+  const response = await sendMessageToBackend(`Audit reliability for app:\n${JSON.stringify(vfs)}`, 'zara-fast', 'chat', 'code_architect', 'analyze');
+  return response.response || "";
 };
 
 export const generateStudentContent = async (config: StudentConfig) => {
-  const ai = getAI();
-  let prompt = `Role: Expert Tutor. Task: ${config.mode}. Topic: ${config.topic}. Follow CONVERSATIONAL MIRRORING PROTOCOL.`;
-  const response = await withRetry(() => ai.models.generateContent({ model: 'models/gemini-1.5-pro-latest', contents: prompt })) as GenerateContentResponse;
-  return response.text || "";
+  let context = "";
+  if (config.studyMaterial) context += `\nStudy Material:\n${config.studyMaterial}`;
+  if (config.attachments && config.attachments.length > 0) {
+    context += `\nAnalyzed Files: ${config.attachments.map(a => a.file.name).join(", ")}`;
+  }
+
+  let prompt = `Task: ${config.mode}. Topic: ${config.topic}. 
+    Context: ${context || "Global knowledge (if allowed by system instruction)"}`;
+
+  const response = await sendMessageToBackend(prompt, 'zara-eco', 'chat', 'tutor', config.mode);
+  return response.response || "";
 };
 
 export const generateCodeAssist = async (code: string, task: string, lang: string) => {
-  const ai = getAI();
-  const response = await withRetry(() => ai.models.generateContent({ model: 'models/gemini-1.5-pro-latest', contents: `Task: ${task} for ${lang} code:\n${code}. Follow CONVERSATIONAL MIRRORING PROTOCOL.` })) as GenerateContentResponse;
-  return response.text || "";
+  const response = await sendMessageToBackend(`Task: ${task} for ${lang} code:\n${code}`, 'zara-fast', 'chat', 'code_architect', 'generate');
+  return response.response || "";
 };
 
 export const generateImageContent = async (prompt: string, options: any) => {
   const ai = getAI();
-  const response = await withRetry(() => ai.models.generateContent({ model: options.model || 'models/gemini-1.5-pro-latest', contents: prompt, config: { imageConfig: { aspectRatio: options.aspectRatio || '1:1' } } })) as GenerateContentResponse;
+  const response = await withRetry(() => ai.models.generateContent({ model: options.model || DEFAULT_MODEL, contents: prompt, config: { imageConfig: { aspectRatio: options.aspectRatio || '1:1' } } })) as GenerateContentResponse;
   let imageUrl: string | undefined; let text: string | undefined;
   if (response.candidates?.[0]?.content?.parts) {
     for (const part of response.candidates[0].content.parts) {
@@ -346,50 +355,85 @@ export const generateImageContent = async (prompt: string, options: any) => {
 
 export const generateVideo = async (prompt: string, aspectRatio: string, images?: any[]) => {
   const ai = getAI();
-  let operation = await withRetry(() => ai.models.generateVideos({ model: 'veo-2.0-generate-preview-001', prompt, config: { numberOfVideos: 1, aspectRatio: aspectRatio === '9:16' ? '9:16' : '16:9' } })) as any;
+  let operation = await withRetry(() => ai.models.generateVideos({ model: 'models/veo-2.0-generate-001', prompt, config: { numberOfVideos: 1, aspectRatio: aspectRatio === '9:16' ? '9:16' : '16:9' } })) as any;
   while (!operation.done) { await sleep(8000); operation = await ai.operations.getVideosOperation({ operation: operation }) as any; }
   return `${operation.response?.generatedVideos?.[0]?.video?.uri}&key=${process.env.API_KEY}`;
 };
 
 export const analyzeVideo = async (base64: string, mimeType: string, prompt: string) => {
   const ai = getAI();
-  const response = await withRetry(() => ai.models.generateContent({ model: 'models/gemini-1.5-pro-latest', contents: { parts: [{ inlineData: { data: base64, mimeType } }, { text: prompt }] } })) as GenerateContentResponse;
+  const response = await withRetry(() => ai.models.generateContent({ model: DEFAULT_MODEL, contents: { parts: [{ inlineData: { data: base64, mimeType } }, { text: prompt }] } })) as GenerateContentResponse;
   return response.text || "";
 };
 
 export const generateSpeech = async (text: string, voice: string) => {
   const ai = getAI();
-  const response = await withRetry(() => ai.models.generateContent({ model: "models/gemini-1.5-pro-latest", contents: [{ parts: [{ text }] }], config: { responseModalities: [Modality.AUDIO], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } } })) as GenerateContentResponse;
+  const response = await withRetry(() => ai.models.generateContent({ model: DEFAULT_MODEL, contents: [{ parts: [{ text }] }], config: { responseModalities: [Modality.AUDIO], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } } })) as GenerateContentResponse;
   return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
 };
 
 export const generateExamQuestions = async (config: ExamConfig) => {
-  const ai = getAI();
-  const resp = await withRetry(() => ai.models.generateContent({ model: 'models/gemini-1.5-pro-latest', contents: `Generate ${config.questionCount} questions for ${config.subject}. Follow CONVERSATIONAL MIRRORING PROTOCOL.`, config: { responseMimeType: "application/json" } })) as GenerateContentResponse;
-  return JSON.parse(resp.text || "[]");
+  const prompt = `Generate exactly ${config.questionCount} ${config.examType} questions for the subject: ${config.subject}.
+    Difficulty Level: ${config.difficulty}
+    Language: ${config.language}
+    Includes Theory: ${config.includeTheory}
+
+    STRICT JSON SCHEMA REQUIRED:
+    Return a list of objects with these EXACT keys:
+    - id: number (sequential)
+    - type: string ("MCQ" or "Theory")
+    - text: string (The question text itself - MUST NOT BE EMPTY)
+    - options: string[] (Required ONLY if type is "MCQ", at least 4 options)
+    - correctAnswer: string (The correct answer text or option text)
+    - marks: number (Points for this question)
+
+    OUTPUT FORMAT:
+    Return ONLY a raw JSON array. Do not include markdown code blocks. Do not include any explanations.`;
+
+  const response = await sendMessageToBackend(prompt, 'zara-eco', 'chat', 'exam_prep', 'generate');
+
+  try {
+    let cleanResponse = response.response.trim();
+    // Remove markdown code blocks if present
+    if (cleanResponse.startsWith("```")) {
+      cleanResponse = cleanResponse.replace(/^```json\n?/, "").replace(/```$/, "").trim();
+    }
+
+    const questions = JSON.parse(cleanResponse);
+
+    // Validation: Ensure questions have text and id
+    if (Array.isArray(questions)) {
+      return questions.filter(q => q.text && q.id).map((q, idx) => ({
+        ...q,
+        id: q.id || idx + 1,
+        marks: q.marks || 2
+      }));
+    }
+    return [];
+  } catch (e) {
+    console.error("Failed to parse Exam JSON:", e, response.response);
+    return [];
+  }
 };
 
 export const evaluateTheoryAnswers = async (sub: string, q: any, ans: string) => {
-  const ai = getAI();
-  const resp = await withRetry(() => ai.models.generateContent({ model: 'models/gemini-1.5-pro-latest', contents: `Grade: ${ans} for ${q.text} in ${sub}. Follow CONVERSATIONAL MIRRORING PROTOCOL.`, config: { responseMimeType: "application/json" } })) as GenerateContentResponse;
-  return JSON.parse(resp.text || "{}");
+  const response = await sendMessageToBackend(`Grade: ${ans} for ${q.text} in ${sub}. Output ONLY raw JSON.`, 'zara-eco', 'chat', 'exam_prep', 'evaluate');
+  try { return JSON.parse(response.response || "{}"); } catch (e) { return {}; }
 };
 
 export const generateFlashcards = async (topic: string, notes: string) => {
-  const ai = getAI();
-  const resp = await withRetry(() => ai.models.generateContent({ model: 'models/gemini-1.5-pro-latest', contents: `Cards for: ${topic}\n${notes}. Follow CONVERSATIONAL MIRRORING PROTOCOL.`, config: { responseMimeType: "application/json" } })) as GenerateContentResponse;
-  return JSON.parse(resp.text || "[]");
+  const response = await sendMessageToBackend(`Cards for: ${topic}\n${notes}. Output ONLY raw JSON array.`, 'zara-eco', 'chat', 'tutor', 'generate');
+  try { return JSON.parse(response.response || "[]"); } catch (e) { return []; }
 };
 
 export const generateStudyPlan = async (topic: string, hours: number) => {
-  const ai = getAI();
-  const resp = await withRetry(() => ai.models.generateContent({ model: 'models/gemini-1.5-pro-latest', contents: `7 day plan for ${topic}, ${hours} hrs/day. Follow CONVERSATIONAL MIRRORING PROTOCOL.`, config: { responseMimeType: "application/json" } })) as GenerateContentResponse;
-  return JSON.parse(resp.text || "{}");
+  const response = await sendMessageToBackend(`7 day plan for ${topic}, ${hours} hrs/day. Output ONLY raw JSON.`, 'zara-eco', 'chat', 'tutor', 'generate');
+  try { return JSON.parse(response.response || "{}"); } catch (e) { return {}; }
 };
 
 export const getBreakingNews = async () => {
   const ai = getAI();
-  const response = await withRetry(() => ai.models.generateContent({ model: 'models/gemini-1.5-pro-latest', contents: "Latest breaking news global. Follow CONVERSATIONAL MIRRORING PROTOCOL.", config: { tools: [{ googleSearch: {} }] } })) as GenerateContentResponse;
+  const response = await withRetry(() => ai.models.generateContent({ model: DEFAULT_MODEL, contents: "Latest breaking news global. Follow CONVERSATIONAL MIRRORING PROTOCOL.", config: { tools: [{ googleSearch: {} }] } })) as GenerateContentResponse;
   const sources: Source[] = [];
   response.candidates?.[0]?.groundingMetadata?.groundingChunks?.forEach((c: any) => { if (c.web) sources.push({ title: c.web.title, uri: c.web.uri }); });
   return { text: response.text || "", sources };

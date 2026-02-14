@@ -1,9 +1,9 @@
-
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Github, Search, Loader2, GitBranch, File, Folder, AlertCircle, Layers, MessageSquare, Send, Bot, User as UserIcon, Check, Copy } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Github, Loader2, File as FileIcon, Folder, Layers, Send, Bot, User as UserIcon } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import mermaid from 'mermaid';
-import { analyzeRepoStream, chatWithRepoStream, fetchGithubTree, RepoNode } from '../services/groq';
+import { fetchGithubTree, RepoNode } from '../services/githubService';
+import { sendMessageToBackend } from '../services/chatService';
 import { Message, Role } from '../types';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -26,8 +26,6 @@ const MermaidDiagram = ({ code }: { code: string }) => {
         setError(null);
       } catch (e) {
         console.error("Mermaid Render Error", e);
-        // Don't show technical error to user, just keep old svg or nothing
-        // setError("Failed to render graph"); 
       }
     };
     if (code) render();
@@ -93,22 +91,49 @@ export const GithubMode: React.FC = () => {
       setRepoNodes(nodes);
 
       // 3. Prepare Context
+      setStatus("Initializing Gemini Analysis...");
       const fileStructure = nodes.map(n => `${n.type === 'tree' ? 'DIR' : 'FILE'}: ${n.path}`).slice(0, 3000).join('\n');
 
-      // 4. Stream Analysis with Groq
-      await analyzeRepoStream(fileStructure, (token) => {
-        setAnalysisText(prev => prev + token);
-      }, (stage) => setStatus(stage));
+      const systemPrompt = `You are a Principal Software Architect AI.
+Your goal is to deeply analyze a GitHub repository structure and provide a comprehensive architectural breakdown.
+
+OUTPUT FORMAT: Markdown with clear sections.
+1. **High-Level Overview**: What does this project do?
+2. **Tech Stack**: Detect languages, frameworks, and tools.
+3. **Architecture Diagram**: Describe the data flow and structure (Mermaid diagram).
+4. **Key Modules**: Explain the folder structure logic.
+Be concise, professional, and insightful.`;
+
+      // 4. Call Backend with Gemini
+      setStatus("Architecting Blueprint...");
+      const result = await sendMessageToBackend(
+        `Analyze this repository structure:\n\n${fileStructure}`,
+        'zara-pro',
+        'chat',
+        'github',
+        'analyze'
+      );
+
+      // Simulate streaming for UI smoothness
+      const text = result.response;
+      const chunkSize = 50;
+      for (let i = 0; i < text.length; i += chunkSize) {
+        setAnalysisText(text.substring(0, i + chunkSize));
+        await new Promise(r => setTimeout(r, 10));
+      }
+      setAnalysisText(text);
+      setStatus("Analysis Complete");
 
       // 5. Init Chat
       setChatMessages([{
         id: 'init',
         role: Role.MODEL,
-        text: "I've analyzed the repository structure. What would you like to know about the architecture or code?",
+        text: "I've analyzed the repository structure using Zara Pro (Gemini). What would you like to know about the architecture or code?",
         timestamp: Date.now()
       }]);
 
     } catch (e: any) {
+      console.error("GitHub Analysis Error", e);
       setStatus("Analysis interrupted");
       setAnalysisText("Unable to complete analysis at this time. Please check the repository URL and ensure it is public.");
     } finally {
@@ -128,14 +153,30 @@ export const GithubMode: React.FC = () => {
     setChatMessages(prev => [...prev, { id: botId, role: Role.MODEL, text: '', timestamp: Date.now(), isStreaming: true }]);
 
     const fileStructure = repoNodes.map(n => `${n.type === 'tree' ? 'DIR' : 'FILE'}: ${n.path}`).slice(0, 3000).join('\n');
-    const context = `ANALYSIS SUMMARY:\n${analysisText}\n\nFILE STRUCTURE:\n${fileStructure}`;
+    const repoContext = `ANALYSIS SUMMARY:\n${analysisText}\n\nFILE STRUCTURE:\n${fileStructure}`;
 
-    await chatWithRepoStream([...chatMessages, userMsg], context, (token) => {
-      setChatMessages(prev => prev.map(m => m.id === botId ? { ...m, text: m.text + token } : m));
-    });
+    try {
+      const result = await sendMessageToBackend(
+        `User Prompt: ${chatInput}\n\nRepository Context:\n${repoContext}`,
+        'zara-pro',
+        'chat',
+        'github',
+        'chat'
+      );
 
-    setChatMessages(prev => prev.map(m => m.id === botId ? { ...m, isStreaming: false } : m));
-    setIsChatting(false);
+      const text = result.response;
+      const chunkSize = 30;
+      for (let i = 0; i < text.length; i += chunkSize) {
+        setChatMessages(prev => prev.map(m => m.id === botId ? { ...m, text: text.substring(0, i + chunkSize) } : m));
+        await new Promise(r => setTimeout(r, 10));
+      }
+      setChatMessages(prev => prev.map(m => m.id === botId ? { ...m, text: text, isStreaming: false } : m));
+
+    } catch (e: any) {
+      setChatMessages(prev => prev.map(m => m.id === botId ? { ...m, text: "Error generating response. Please try again.", isStreaming: false } : m));
+    } finally {
+      setIsChatting(false);
+    }
   };
 
   useEffect(() => {
@@ -190,7 +231,7 @@ export const GithubMode: React.FC = () => {
             {repoNodes.length === 0 && <div className="text-center p-8 text-text-sub/30 text-xs italic">No repository loaded.</div>}
             {repoNodes.map((node, i) => (
               <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded hover:bg-white/5 cursor-default group transition-colors">
-                {node.type === 'tree' ? <Folder className="w-3.5 h-3.5 text-primary" /> : <File className="w-3.5 h-3.5 text-text-sub group-hover:text-white" />}
+                {node.type === 'tree' ? <Folder className="w-3.5 h-3.5 text-primary" /> : <FileIcon className="w-3.5 h-3.5 text-text-sub group-hover:text-white" />}
                 <span className="text-xs text-text-sub group-hover:text-text truncate font-mono">{node.path.split('/').pop()}</span>
               </div>
             ))}
