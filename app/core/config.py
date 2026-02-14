@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     API_KEY: Optional[str] = None
     
     GROQ_API_KEY: Optional[str] = None
+    OPENROUTER_API_KEY: Optional[str] = None  # OpenRouter for ECO mode
+    # Deprecated - migrated to OpenRouter
+    TOGETHER_API_KEY: Optional[str] = None
     DEEPSEEK_API_KEY: Optional[str] = None
     STABILITY_API_KEY: Optional[str] = None
 
