@@ -35,6 +35,8 @@ app.include_router(ai.router, prefix=f"{settings.API_V1_STR}/ai", tags=["ai"])
 app.include_router(image_generation.router, prefix=f"{settings.API_V1_STR}/image-generation", tags=["image-generation"])
 app.include_router(analysis.router, prefix=f"{settings.API_V1_STR}/analysis", tags=["analysis"])
 app.include_router(diagram.router, prefix=f"{settings.API_V1_STR}/diagram", tags=["diagram"])
+from app.api import reports
+app.include_router(reports.router, prefix=f"{settings.API_V1_STR}/reports", tags=["reports"])
 
 @app.get("/")
 def root():
