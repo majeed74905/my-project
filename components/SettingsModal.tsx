@@ -203,6 +203,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </select>
                       </div>
                     </div>
+                    <div className="pt-4 border-t border-white/5 flex items-center justify-between mt-4">
+                      <div>
+                        <p className="font-bold text-sm text-red-400">Delete Account</p>
+                        <p className="text-xs text-text-sub">Permanently remove all data</p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          if (confirm("Are you sure? This action is IRREVERSIBLE. All chat history and account data will be lost forever.")) {
+                            const token = localStorage.getItem('auth_token');
+                            if (token) {
+                              await fetch(`${(import.meta as any).env.VITE_API_URL || 'http://localhost:8000/api/v1'}/users/me`, {
+                                method: 'DELETE',
+                                headers: { 'Authorization': `Bearer ${token}` }
+                              });
+                              localStorage.removeItem('auth_token');
+                              window.location.reload();
+                            }
+                          }
+                        }}
+                        className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                      >
+                        Delete Forever
+                      </button>
+                    </div>
                   </section>
                 </div>
               </div>

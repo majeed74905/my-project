@@ -223,6 +223,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onLoginSu
                             </div>
                         )}
 
+                        {view === 'signup' && (
+                            <div className="flex items-start gap-3 my-4">
+                                <div className="flex items-center h-5">
+                                    <input
+                                        id="terms"
+                                        type="checkbox"
+                                        required
+                                        className="w-4 h-4 rounded border-gray-600 bg-[#1a1033] text-purple-600 focus:ring-purple-500 focus:ring-offset-gray-900"
+                                    />
+                                </div>
+                                <label htmlFor="terms" className="text-xs text-gray-400">
+                                    I agree to the <a href="/legal/terms-of-service.html" target="_blank" className="text-purple-400 hover:underline">Terms of Service</a>, <a href="/legal/privacy-policy.html" target="_blank" className="text-purple-400 hover:underline">Privacy Policy</a>, and <a href="/legal/eula.html" target="_blank" className="text-purple-400 hover:underline">EULA</a>. I confirm I am at least 13 years old.
+                                </label>
+                            </div>
+                        )}
+
                         {view === 'link-sent' ? null : (
                             <button
                                 type="submit"
