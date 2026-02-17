@@ -350,8 +350,17 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                       <Bookmark className="w-4 h-4" /> Save message
                     </button>
                     <button
-                      onClick={() => setShowMoreMenu(false)}
-                      className="px-3 py-2.5 hover:bg-white/5 text-left text-xs flex items-center gap-2.5 text-red-500/70 transition-colors"
+                      // REQUIRED FOR GOOGLE PLAY GENERATIVE AI POLICY
+                      onClick={async () => {
+                        setShowMoreMenu(false);
+                        const reason = window.prompt("Why are you reporting this message? (e.g. Offensive, Harmful, Inaccurate)");
+                        if (reason) {
+                          const { reportService } = await import('../services/reportService');
+                          await reportService.reportMessage(message.text, reason);
+                          alert("Thank you. This content has been flagged for review.");
+                        }
+                      }}
+                      className="px-3 py-2.5 hover:bg-white/5 text-left text-xs flex items-center gap-2.5 text-red-500/70 hover:text-red-400 transition-colors"
                     >
                       <Flag className="w-4 h-4" /> Report issue
                     </button>
