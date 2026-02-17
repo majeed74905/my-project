@@ -62,6 +62,21 @@ def set_auto_delete(
     db.commit()
     return {"msg": f"Auto-delete set to {days} days" if days > 0 else "Auto-delete disabled"}
 
+@router.delete("/me")
+def delete_account(
+    current_user: User = Depends(deps.get_current_active_user),
+    db: Session = Depends(deps.get_db)
+):
+    """
+    PERMANENTLY DELETE ACCOUNT.
+    Removes user and all associated data (history, logs, tokens).
+    This action is irreversible.
+    Required for Google Play Store & GDPR compliance.
+    """
+    db.delete(current_user)
+    db.commit()
+    return {"msg": "Account permanently deleted. Goodbye."}
+
 @router.get("/me/history/search")
 def search_history(
     q: str,
