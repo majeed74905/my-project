@@ -2,6 +2,15 @@
 <html lang="en" class="theme-dark dark">
 
 <head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-08RYZQZJPQ"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-08RYZQZJPQ');
+  </script>
+
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
@@ -17,20 +26,8 @@
   <meta name="theme-color" content="#8B5CF6">
 
   <!-- Analytics & Behavior Tracking (Enterprise Implementation) -->
-  <!-- Google Analytics (GA4) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-C1NL7RE2SP"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag() { dataLayer.push(arguments); }
-    gtag('js', new Date());
-    gtag('config', 'G-C1NL7RE2SP', {
-      send_page_view: false, // Page views are managed by React AnalyticsTracker for SPA accuracy
-      anonymize_ip: true,     // GDPR/CCPA Compliance
-      cookie_flags: 'SameSite=None;Secure'
-    });
-  </script>
+  <!-- Microsoft Clarity (below); Google Analytics moved to top of <head> per Google spec -->
 
-  <!-- Microsoft Clarity -->
   <script type="text/javascript">
     (function (c, l, a, r, i, t, y) {
       if (i === "PROJECT_ID_HERE" || !i) return; // Only return if it's the placeholder
