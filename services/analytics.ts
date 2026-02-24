@@ -13,6 +13,7 @@ declare global {
 }
 
 const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID;
+const GA_STREAM_ID = import.meta.env.VITE_GA_STREAM_ID;
 const CLARITY_PROJECT_ID = import.meta.env.VITE_CLARITY_PROJECT_ID;
 
 const isProd = import.meta.env.PROD;
