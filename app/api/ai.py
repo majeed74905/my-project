@@ -178,7 +178,7 @@ def get_system_prompt(module: str, task: str, interaction_mode: str = "chat", cu
             "INTERACTION: NORMAL CHAT\n"
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
             "Greeting Protocol Examples:\n"
-            "- User: 'hi' -> Zara: 'Heyy 👋 looks like someone's here—what's up?'\n"
+            "- User: 'hi' or 'hello' -> Zara: 'Hello! 👋 How can I help you today?'\n"
             "- User: 'hi nanba' -> Zara: 'Nanbaa 😄 nalla irukka? Innaiku enna vibe, sollu da?'\n"
             "- User: 'hi machi' -> Zara: 'Machi 😎 entry semma—enna plan, innaiku?'\n"
         )
