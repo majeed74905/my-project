@@ -26,6 +26,7 @@ import { CommandPalette } from './components/CommandPalette';
 import { HomeDashboard } from './components/features/HomeDashboard';
 import { exportChatToMarkdown, exportChatToPDF, exportChatToText } from './utils/exportUtils';
 import { useBackgroundSync } from './hooks/useBackgroundSync';
+import OrbBackground from './src/components/OrbBackground';
 
 // Lazy Loaded Components for Performance
 const StudentMode = lazy(() => import('./components/StudentMode').then(m => ({ default: m.StudentMode })));
@@ -240,110 +241,123 @@ const App: React.FC = () => {
       case 'github': return withHeader(<GithubMode />, "GitHub");
       default:
         return (
-          <div className={`flex-1 flex flex-col h-full relative transition-all duration-500 ${chatConfig.isEmotionalMode ? 'bg-[#0f0821]' : ''}`}>
-            <header className="flex items-center justify-between px-6 py-4 border-b border-white/5 z-30 sticky top-0 backdrop-blur-3xl bg-background/20">
-              <div className="flex items-center gap-2">
-                <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 hover:bg-white/5 rounded-full"><Menu /></button>
-                <ChatControls config={chatConfig} setConfig={setChatConfig} currentSession={currentSessionId ? sessions.find(s => s.id === currentSessionId) || null : null} />
-              </div>
-              <div className="flex items-center gap-3">
-                {currentUser && (
-                  <button
-                    onClick={() => handleTogglePrivacy(!currentUser.is_privacy_mode)}
-                    className={`p-2.5 rounded-full transition-all border border-white/5 ${currentUser.is_privacy_mode ? 'bg-orange-500/10 text-orange-400 border-orange-500/20 shadow-[0_0_15px_rgba(251,146,60,0.2)]' : 'bg-white/5 text-white/40 hover:text-white'}`}
-                  >
-                    {currentUser.is_privacy_mode ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                )}
-                <button
-                  onClick={() => setChatConfig(p => ({ ...p, isEmotionalMode: !p.isEmotionalMode }))}
-                  className={`p-2.5 rounded-full transition-all border border-white/5 ${chatConfig.isEmotionalMode ? 'bg-purple-500/10 text-purple-400 border-purple-500/20 shadow-[0_0_20px_rgba(168,85,247,0.3)]' : 'bg-white/5 text-white/40 hover:text-white'}`}
-                >
-                  <Heart className={`w-5 h-5 ${chatConfig.isEmotionalMode ? 'fill-current' : ''}`} />
-                </button>
-                <button
-                  onClick={() => setChatConfig(p => ({ ...p, useGrounding: !p.useGrounding }))}
-                  className={`p-2.5 rounded-full transition-all border border-white/5 ${chatConfig.useGrounding ? 'bg-blue-500/10 text-blue-400 border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.2)]' : 'bg-white/5 text-white/40 hover:text-white'}`}
-                >
-                  <Globe className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => setChatConfig(p => ({ ...p, useThinking: !p.useThinking }))}
-                  className={`p-2.5 rounded-full transition-all border border-white/5 ${chatConfig.useThinking ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'bg-white/5 text-white/40 hover:text-white'}`}
-                >
-                  <Brain className="w-5 h-5" />
-                </button>
-              </div>
-            </header>
-            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto flex flex-col">
-              <div className="max-w-3xl mx-auto py-6 space-y-2 px-4 md:px-0 flex-1 flex flex-col justify-center">
-                {messages.length === 0 ? (
-                  chatConfig.isEmotionalMode ? (
-                    <div className="flex flex-col items-center justify-center py-10 text-center animate-fade-in space-y-8">
-                      {/* High Fidelity Zara Care Heart Box */}
-                      <div className="w-32 h-32 bg-[#1a1033] border border-purple-500/20 rounded-[2.5rem] flex items-center justify-center shadow-[0_0_50px_rgba(168,85,247,0.15)] relative group overflow-hidden">
-                        <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        <motion.div
-                          animate={{
-                            scale: [1, 1.1, 1],
-                            filter: ["drop-shadow(0 0 5px rgba(168,85,247,0))", "drop-shadow(0 0 15px rgba(168,85,247,0.5))", "drop-shadow(0 0 5px rgba(168,85,247,0))"]
-                          }}
-                          transition={{ duration: 3, repeat: Infinity }}
-                        >
-                          <Heart className="w-16 h-16 text-purple-400 stroke-[1.5]" />
-                        </motion.div>
-                      </div>
-
-                      <div className="space-y-4">
-                        <h2 className="text-xl font-medium text-white/80">Hello, I'm</h2>
-                        <h1 className="text-7xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-300">
-                          Zara Care
-                        </h1>
-                        <p className="text-2xl font-medium text-white/90">
-                          I'm listening. How are you feeling?
-                        </p>
-                      </div>
-
-                      {/* Emotional Support Badge */}
-                      <div className="flex items-center gap-2 px-4 py-2 bg-purple-500/10 border border-purple-500/20 rounded-full">
-                        <Heart className="w-4 h-4 fill-purple-400 text-purple-400" />
-                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-purple-300">Emotional Support Active</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-10 text-center animate-fade-in space-y-8">
-                      {/* High Fidelity Zara AI Sparkles Box */}
-                      <motion.div
-                        onClick={() => { setIsFlipping(true); setTimeout(() => setIsFlipping(false), 1000); }}
-                        animate={{
-                          scale: [1, 1.05, 1],
-                          rotateY: isFlipping ? 360 : 0
-                        }}
-                        transition={{
-                          scale: { duration: 4, repeat: Infinity, ease: "easeInOut" },
-                          rotateY: { duration: 0.8, ease: "easeInOut" }
-                        }}
-                        className={`w-32 h-32 bg-[#121214] border border-white/5 rounded-[2.5rem] flex items-center justify-center shadow-[0_0_40px_rgba(168,85,247,0.1)] relative group cursor-pointer overflow-hidden`}
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/5 to-transparent opacity-50" />
-                        <Sparkles className="w-16 h-16 text-purple-400 stroke-[1.5]" />
-                      </motion.div>
-
-                      <div className="space-y-4">
-                        <h2 className="text-xl font-medium text-white/60">Hello, I'm</h2>
-                        <h1 className="text-7xl font-black tracking-tighter text-[#a78bfa]">
-                          Zara AI
-                        </h1>
-                        <p className="text-2xl font-medium text-white">
-                          What would you like to do?
-                        </p>
-                      </div>
-                    </div>
-                  )
-                ) : messages.map(msg => <MessageItem key={msg.id} message={msg} onEdit={setEditingMessage} onRegenerate={() => { }} onLike={() => { }} onDislike={() => { }} onShare={() => { }} onBranch={() => { }} />)}
-              </div>
+          <div className={`flex-1 flex flex-col h-full relative transition-all duration-500 overflow-hidden ${chatConfig.isEmotionalMode ? 'bg-[#0f0821]' : 'bg-background'}`}>
+            {/* Background Orb Layer */}
+            <div className="orb-wrapper">
+              <OrbBackground
+                backgroundColor={chatConfig.isEmotionalMode ? "#0f0821" : "#09090B"}
+                hue={chatConfig.isEmotionalMode ? 320 : 270}
+                hoverIntensity={0.5}
+                forceHoverState={messages.length === 0}
+              />
+              <div className="orb-glow" />
             </div>
-            <InputArea onSendMessage={handleSendMessage} onStop={() => { abortRef.current = true; setIsLoading(false); }} isLoading={isLoading} disabled={false} isOffline={!isOnline} editMessage={editingMessage} onCancelEdit={() => setEditingMessage(null)} viewMode={currentView} isEmotionalMode={chatConfig.isEmotionalMode} />
+
+            <div className="relative z-10 flex flex-col h-full">
+              <header className="flex items-center justify-between px-6 py-4 border-b border-white/5 z-30 sticky top-0 backdrop-blur-3xl bg-background/20">
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 hover:bg-white/5 rounded-full"><Menu /></button>
+                  <ChatControls config={chatConfig} setConfig={setChatConfig} currentSession={currentSessionId ? sessions.find(s => s.id === currentSessionId) || null : null} />
+                </div>
+                <div className="flex items-center gap-3">
+                  {currentUser && (
+                    <button
+                      onClick={() => handleTogglePrivacy(!currentUser.is_privacy_mode)}
+                      className={`p-2.5 rounded-full transition-all border border-white/5 ${currentUser.is_privacy_mode ? 'bg-orange-500/10 text-orange-400 border-orange-500/20 shadow-[0_0_15px_rgba(251,146,60,0.2)]' : 'bg-white/5 text-white/40 hover:text-white'}`}
+                    >
+                      {currentUser.is_privacy_mode ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setChatConfig(p => ({ ...p, isEmotionalMode: !p.isEmotionalMode }))}
+                    className={`p-2.5 rounded-full transition-all border border-white/5 ${chatConfig.isEmotionalMode ? 'bg-purple-500/10 text-purple-400 border-purple-500/20 shadow-[0_0_20px_rgba(168,85,247,0.3)]' : 'bg-white/5 text-white/40 hover:text-white'}`}
+                  >
+                    <Heart className={`w-5 h-5 ${chatConfig.isEmotionalMode ? 'fill-current' : ''}`} />
+                  </button>
+                  <button
+                    onClick={() => setChatConfig(p => ({ ...p, useGrounding: !p.useGrounding }))}
+                    className={`p-2.5 rounded-full transition-all border border-white/5 ${chatConfig.useGrounding ? 'bg-blue-500/10 text-blue-400 border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.2)]' : 'bg-white/5 text-white/40 hover:text-white'}`}
+                  >
+                    <Globe className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setChatConfig(p => ({ ...p, useThinking: !p.useThinking }))}
+                    className={`p-2.5 rounded-full transition-all border border-white/5 ${chatConfig.useThinking ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'bg-white/5 text-white/40 hover:text-white'}`}
+                  >
+                    <Brain className="w-5 h-5" />
+                  </button>
+                </div>
+              </header>
+              <div ref={scrollContainerRef} className="flex-1 overflow-y-auto flex flex-col">
+                <div className="max-w-3xl mx-auto py-6 space-y-2 px-4 md:px-0 flex-1 flex flex-col justify-center">
+                  {messages.length === 0 ? (
+                    chatConfig.isEmotionalMode ? (
+                      <div className="flex flex-col items-center justify-center py-10 text-center animate-fade-in space-y-8">
+                        {/* High Fidelity Zara Care Heart Box */}
+                        <div className="w-32 h-32 bg-[#1a1033] border border-purple-500/20 rounded-[2.5rem] flex items-center justify-center shadow-[0_0_50px_rgba(168,85,247,0.15)] relative group overflow-hidden">
+                          <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <motion.div
+                            animate={{
+                              scale: [1, 1.1, 1],
+                              filter: ["drop-shadow(0 0 5px rgba(168,85,247,0))", "drop-shadow(0 0 15px rgba(168,85,247,0.5))", "drop-shadow(0 0 5px rgba(168,85,247,0))"]
+                            }}
+                            transition={{ duration: 3, repeat: Infinity }}
+                          >
+                            <Heart className="w-16 h-16 text-purple-400 stroke-[1.5]" />
+                          </motion.div>
+                        </div>
+
+                        <div className="space-y-4">
+                          <h2 className="text-xl font-medium text-white/80">Hello, I'm</h2>
+                          <h1 className="text-7xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-300">
+                            Zara Care
+                          </h1>
+                          <p className="text-2xl font-medium text-white/90">
+                            I'm listening. How are you feeling?
+                          </p>
+                        </div>
+
+                        {/* Emotional Support Badge */}
+                        <div className="flex items-center gap-2 px-4 py-2 bg-purple-500/10 border border-purple-500/20 rounded-full">
+                          <Heart className="w-4 h-4 fill-purple-400 text-purple-400" />
+                          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-purple-300">Emotional Support Active</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-10 text-center animate-fade-in space-y-8">
+                        {/* High Fidelity Zara AI Sparkles Box */}
+                        <motion.div
+                          onClick={() => { setIsFlipping(true); setTimeout(() => setIsFlipping(false), 1000); }}
+                          animate={{
+                            scale: [1, 1.05, 1],
+                            rotateY: isFlipping ? 360 : 0
+                          }}
+                          transition={{
+                            scale: { duration: 4, repeat: Infinity, ease: "easeInOut" },
+                            rotateY: { duration: 0.8, ease: "easeInOut" }
+                          }}
+                          className={`w-32 h-32 bg-[#121214] border border-white/5 rounded-[2.5rem] flex items-center justify-center shadow-[0_0_40px_rgba(168,85,247,0.1)] relative group cursor-pointer overflow-hidden`}
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/5 to-transparent opacity-50" />
+                          <Sparkles className="w-16 h-16 text-purple-400 stroke-[1.5]" />
+                        </motion.div>
+
+                        <div className="space-y-4">
+                          <h2 className="text-xl font-medium text-white/60">Hello, I'm</h2>
+                          <h1 className="text-7xl font-black tracking-tighter text-[#a78bfa]">
+                            Zara AI
+                          </h1>
+                          <p className="text-2xl font-medium text-white">
+                            What would you like to do?
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  ) : messages.map(msg => <MessageItem key={msg.id} message={msg} onEdit={setEditingMessage} onRegenerate={() => { }} onLike={() => { }} onDislike={() => { }} onShare={() => { }} onBranch={() => { }} />)}
+                </div>
+              </div>
+              <InputArea onSendMessage={handleSendMessage} onStop={() => { abortRef.current = true; setIsLoading(false); }} isLoading={isLoading} disabled={false} isOffline={!isOnline} editMessage={editingMessage} onCancelEdit={() => setEditingMessage(null)} viewMode={currentView} isEmotionalMode={chatConfig.isEmotionalMode} />
+            </div>
           </div>
         );
     }

@@ -214,6 +214,40 @@
       border: 1px solid var(--border-color);
       backdrop-filter: blur(12px);
     }
+
+    #orb-container {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    #orb-container canvas {
+      filter: blur(40px) brightness(1.2);
+      opacity: 0.6;
+    }
+
+    .orb-wrapper {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .orb-glow {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%,
+          rgba(168, 85, 247, 0.15),
+          transparent 70%);
+      pointer-events: none;
+      z-index: 1;
+    }
   </style>
   <script type="importmap">
     {
