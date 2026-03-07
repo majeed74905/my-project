@@ -296,18 +296,65 @@ const App: React.FC = () => {
                     chatConfig.isEmotionalMode ? (
                       <div className="flex flex-col items-center justify-center py-6 md:py-10 text-center animate-fade-in space-y-6 md:space-y-8">
                         {/* High Fidelity Zara Care Heart Box */}
-                        <div className="w-24 h-24 md:w-32 md:h-32 bg-[#1a1033] border border-purple-500/20 rounded-[2rem] md:rounded-[2.5rem] flex items-center justify-center shadow-[0_0_50px_rgba(168,85,247,0.15)] relative group overflow-hidden">
-                          <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <motion.div
+                          animate={{
+                            scale: [1, 1.05, 1],
+                            boxShadow: [
+                              "0 0 20px rgba(168, 85, 247, 0.1)",
+                              "0 0 50px rgba(168, 85, 247, 0.3)",
+                              "0 0 20px rgba(168, 85, 247, 0.1)"
+                            ]
+                          }}
+                          transition={{
+                            scale: { duration: 4, repeat: Infinity, ease: "easeInOut" },
+                            boxShadow: { duration: 3, repeat: Infinity, ease: "easeInOut" }
+                          }}
+                          className="w-24 h-24 md:w-32 md:h-32 bg-[#1a1033]/80 border border-purple-500/30 rounded-[2rem] md:rounded-[2.5rem] flex items-center justify-center relative group overflow-hidden backdrop-blur-md"
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/20 via-transparent to-pink-500/20 opacity-50 group-hover:opacity-100 transition-opacity" />
+
+                          {/* Animated Heart Icon with "Heartbeat" */}
                           <motion.div
                             animate={{
-                              scale: [1, 1.1, 1],
-                              filter: ["drop-shadow(0 0 5px rgba(168,85,247,0))", "drop-shadow(0 0 15px rgba(168,85,247,0.5))", "drop-shadow(0 0 5px rgba(168,85,247,0))"]
+                              scale: [1, 1.15, 1, 1.2, 1],
+                              filter: [
+                                "drop-shadow(0 0 5px rgba(168, 85, 247, 0.4))",
+                                "drop-shadow(0 0 25px rgba(168, 85, 247, 0.8))",
+                                "drop-shadow(0 0 5px rgba(168, 85, 247, 0.4))"
+                              ]
                             }}
-                            transition={{ duration: 3, repeat: Infinity }}
+                            transition={{
+                              duration: 2.5,
+                              repeat: Infinity,
+                              ease: "easeInOut",
+                              times: [0, 0.1, 0.2, 0.5, 1]
+                            }}
                           >
-                            <Heart className="w-12 h-12 md:w-16 md:h-16 text-purple-400 stroke-[1.5]" />
+                            <Heart className="w-12 h-12 md:w-16 md:h-16 text-purple-400 stroke-[1.5] fill-purple-400/10" />
                           </motion.div>
-                        </div>
+
+                          {/* Particle Accents */}
+                          <div className="absolute inset-0 pointer-events-none">
+                            <motion.div
+                              animate={{
+                                y: [-20, 20, -20],
+                                scale: [1, 1.4, 1],
+                                opacity: [0.3, 0.8, 0.3]
+                              }}
+                              transition={{ duration: 5, repeat: Infinity }}
+                              className="absolute top-4 left-6 w-1.5 h-1.5 bg-pink-400 rounded-full blur-[1px]"
+                            />
+                            <motion.div
+                              animate={{
+                                y: [20, -20, 20],
+                                scale: [0.8, 1.5, 0.8],
+                                opacity: [0.2, 0.6, 0.2]
+                              }}
+                              transition={{ duration: 7, repeat: Infinity }}
+                              className="absolute bottom-6 right-8 w-2 h-2 bg-purple-400 rounded-full blur-[1px]"
+                            />
+                          </div>
+                        </motion.div>
 
                         <div className="space-y-2 md:space-y-4 px-6 md:px-0">
                           <h2 className="text-lg md:text-xl font-medium text-white/80">Hello, I'm</h2>
