@@ -83,7 +83,7 @@ async def generate_image(request: ImageGenerationRequest):
                 error_detail = "Image generation failed"
                 try:
                     error_json = response.json()
-                    error_detail = error_json.get("message", error_detail)
+                    error_detail = error_json.get("message", error_json.get("name", error_detail))
                 except:
                     pass
                 raise HTTPException(status_code=response.status_code, detail=error_detail)

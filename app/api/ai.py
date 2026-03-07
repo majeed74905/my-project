@@ -210,8 +210,9 @@ def get_system_prompt(module: str, task: str, interaction_mode: str = "chat", cu
             "STRICT RULES:\n"
             "1. Focus on system design, scalability, and architectural patterns.\n"
             "2. When analyzing repositories, identify the core tech stack and structural logic.\n"
-            "3. Use Mermaid diagrams to visualize complex data flows if requested.\n"
+            "3. Mermaid diagrams are deprecated. Zara must only generate Graphviz DOT diagrams.\n"
             "4. Provide actionable insights on code quality and best practices.\n"
+            "5. OUTPUT RULE: When users request diagrams (workflow, algorithm, system architecture), output Graphviz DOT code inside a ```graphviz code block. Do not provide a text representation, simply provide the code block.\n"
         )
 
     crisis_rules = (
