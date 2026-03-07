@@ -223,7 +223,7 @@ export const InputArea: React.FC<InputAreaProps> = ({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide px-2 justify-center"
+            className="flex gap-2 mb-4 md:mb-6 overflow-x-auto pb-2 scrollbar-hide px-4 md:px-2 justify-start md:justify-center"
           >
             {templates.slice(0, 4).map(tpl => (
               <button
@@ -338,7 +338,7 @@ export const InputArea: React.FC<InputAreaProps> = ({
             : "0 0 20px rgba(0,0,0,0.3)"
         }}
         transition={{ duration: 0.3 }}
-        className={`relative flex flex-col glass-morphism ${isEmotionalMode ? 'rounded-full border-purple-500/30' : 'rounded-[2rem] border-white/10'} border overflow-hidden transition-all bg-black/40 backdrop-blur-3xl`}
+        className={`relative flex flex-col glass-morphism ${isEmotionalMode ? 'rounded-full border-purple-500/30' : 'rounded-[1.5rem] md:rounded-[2rem] border-white/10'} border overflow-hidden transition-all bg-black/40 backdrop-blur-3xl`}
       >
         {/* Attachment Ribbon */}
         <AnimatePresence>
@@ -384,7 +384,7 @@ export const InputArea: React.FC<InputAreaProps> = ({
           )}
         </AnimatePresence>
 
-        <div className="flex items-end gap-3 px-6 py-2">
+        <div className="flex items-end gap-2 md:gap-3 px-3 md:px-6 py-2">
           {/* Action Icons */}
           <div className="flex items-center mb-1">
             <button

@@ -256,35 +256,37 @@ const App: React.FC = () => {
             <div className="relative z-10 flex flex-col h-full">
               <header className="flex items-center justify-between px-6 py-4 border-b border-white/5 z-30 sticky top-0 backdrop-blur-3xl bg-background/20">
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 hover:bg-white/5 rounded-full"><Menu /></button>
-                  <ChatControls config={chatConfig} setConfig={setChatConfig} currentSession={currentSessionId ? sessions.find(s => s.id === currentSessionId) || null : null} />
+                  <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 hover:bg-white/5 rounded-full text-white/70"><Menu /></button>
+                  <div className="scale-90 md:scale-100 origin-left">
+                    <ChatControls config={chatConfig} setConfig={setChatConfig} currentSession={currentSessionId ? sessions.find(s => s.id === currentSessionId) || null : null} />
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
                   {currentUser && (
                     <button
                       onClick={() => handleTogglePrivacy(!currentUser.is_privacy_mode)}
-                      className={`p-2.5 rounded-full transition-all border border-white/5 ${currentUser.is_privacy_mode ? 'bg-orange-500/10 text-orange-400 border-orange-500/20 shadow-[0_0_15px_rgba(251,146,60,0.2)]' : 'bg-white/5 text-white/40 hover:text-white'}`}
+                      className={`p-2 md:p-2.5 rounded-full transition-all border border-white/5 ${currentUser.is_privacy_mode ? 'bg-orange-500/10 text-orange-400 border-orange-500/20 shadow-[0_0_15px_rgba(251,146,60,0.2)]' : 'bg-white/5 text-white/40 hover:text-white'}`}
                     >
-                      {currentUser.is_privacy_mode ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      {currentUser.is_privacy_mode ? <EyeOff className="w-4 h-4 md:w-5 md:h-5" /> : <Eye className="w-4 h-4 md:w-5 md:h-5" />}
                     </button>
                   )}
                   <button
                     onClick={() => setChatConfig(p => ({ ...p, isEmotionalMode: !p.isEmotionalMode }))}
-                    className={`p-2.5 rounded-full transition-all border border-white/5 ${chatConfig.isEmotionalMode ? 'bg-purple-500/10 text-purple-400 border-purple-500/20 shadow-[0_0_20px_rgba(168,85,247,0.3)]' : 'bg-white/5 text-white/40 hover:text-white'}`}
+                    className={`p-2 md:p-2.5 rounded-full transition-all border border-white/5 ${chatConfig.isEmotionalMode ? 'bg-purple-500/10 text-purple-400 border-purple-500/20 shadow-[0_0_20px_rgba(168,85,247,0.3)]' : 'bg-white/5 text-white/40 hover:text-white'}`}
                   >
-                    <Heart className={`w-5 h-5 ${chatConfig.isEmotionalMode ? 'fill-current' : ''}`} />
+                    <Heart className={`w-4 h-4 md:w-5 md:h-5 ${chatConfig.isEmotionalMode ? 'fill-current' : ''}`} />
                   </button>
                   <button
                     onClick={() => setChatConfig(p => ({ ...p, useGrounding: !p.useGrounding }))}
-                    className={`p-2.5 rounded-full transition-all border border-white/5 ${chatConfig.useGrounding ? 'bg-blue-500/10 text-blue-400 border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.2)]' : 'bg-white/5 text-white/40 hover:text-white'}`}
+                    className={`p-2 md:p-2.5 rounded-full transition-all border border-white/5 ${chatConfig.useGrounding ? 'bg-blue-500/10 text-blue-400 border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.2)]' : 'bg-white/5 text-white/40 hover:text-white'}`}
                   >
-                    <Globe className="w-5 h-5" />
+                    <Globe className="w-4 h-4 md:w-5 md:h-5" />
                   </button>
                   <button
                     onClick={() => setChatConfig(p => ({ ...p, useThinking: !p.useThinking }))}
-                    className={`p-2.5 rounded-full transition-all border border-white/5 ${chatConfig.useThinking ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'bg-white/5 text-white/40 hover:text-white'}`}
+                    className={`p-2 md:p-2.5 rounded-full transition-all border border-white/5 ${chatConfig.useThinking ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.2)]' : 'bg-white/5 text-white/40 hover:text-white'}`}
                   >
-                    <Brain className="w-5 h-5" />
+                    <Brain className="w-4 h-4 md:w-5 md:h-5" />
                   </button>
                 </div>
               </header>
@@ -292,9 +294,9 @@ const App: React.FC = () => {
                 <div className="max-w-3xl mx-auto py-6 space-y-2 px-4 md:px-0 flex-1 flex flex-col justify-center">
                   {messages.length === 0 ? (
                     chatConfig.isEmotionalMode ? (
-                      <div className="flex flex-col items-center justify-center py-10 text-center animate-fade-in space-y-8">
+                      <div className="flex flex-col items-center justify-center py-6 md:py-10 text-center animate-fade-in space-y-6 md:space-y-8">
                         {/* High Fidelity Zara Care Heart Box */}
-                        <div className="w-32 h-32 bg-[#1a1033] border border-purple-500/20 rounded-[2.5rem] flex items-center justify-center shadow-[0_0_50px_rgba(168,85,247,0.15)] relative group overflow-hidden">
+                        <div className="w-24 h-24 md:w-32 md:h-32 bg-[#1a1033] border border-purple-500/20 rounded-[2rem] md:rounded-[2.5rem] flex items-center justify-center shadow-[0_0_50px_rgba(168,85,247,0.15)] relative group overflow-hidden">
                           <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                           <motion.div
                             animate={{
@@ -303,16 +305,16 @@ const App: React.FC = () => {
                             }}
                             transition={{ duration: 3, repeat: Infinity }}
                           >
-                            <Heart className="w-16 h-16 text-purple-400 stroke-[1.5]" />
+                            <Heart className="w-12 h-12 md:w-16 md:h-16 text-purple-400 stroke-[1.5]" />
                           </motion.div>
                         </div>
 
-                        <div className="space-y-4">
-                          <h2 className="text-xl font-medium text-white/80">Hello, I'm</h2>
-                          <h1 className="text-7xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-300">
+                        <div className="space-y-2 md:space-y-4 px-6 md:px-0">
+                          <h2 className="text-lg md:text-xl font-medium text-white/80">Hello, I'm</h2>
+                          <h1 className="text-5xl md:text-7xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-300">
                             Zara Care
                           </h1>
-                          <p className="text-2xl font-medium text-white/90">
+                          <p className="text-xl md:text-2xl font-medium text-white/90">
                             I'm listening. How are you feeling?
                           </p>
                         </div>
@@ -324,30 +326,79 @@ const App: React.FC = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center justify-center py-10 text-center animate-fade-in space-y-8">
+                      <div className="flex flex-col items-center justify-center py-6 md:py-10 text-center animate-fade-in space-y-6 md:space-y-8">
                         {/* High Fidelity Zara AI Sparkles Box */}
                         <motion.div
                           onClick={() => { setIsFlipping(true); setTimeout(() => setIsFlipping(false), 1000); }}
                           animate={{
                             scale: [1, 1.05, 1],
-                            rotateY: isFlipping ? 360 : 0
+                            rotateY: isFlipping ? 360 : 0,
+                            boxShadow: [
+                              "0 0 20px rgba(168, 85, 247, 0.1)",
+                              "0 0 45px rgba(168, 85, 247, 0.3)",
+                              "0 0 20px rgba(168, 85, 247, 0.1)"
+                            ]
                           }}
                           transition={{
                             scale: { duration: 4, repeat: Infinity, ease: "easeInOut" },
-                            rotateY: { duration: 0.8, ease: "easeInOut" }
+                            rotateY: { duration: 0.8, ease: "easeInOut" },
+                            boxShadow: { duration: 3, repeat: Infinity, ease: "easeInOut" }
                           }}
-                          className={`w-32 h-32 bg-[#121214] border border-white/5 rounded-[2.5rem] flex items-center justify-center shadow-[0_0_40px_rgba(168,85,247,0.1)] relative group cursor-pointer overflow-hidden`}
+                          className={`w-24 h-24 md:w-32 md:h-32 bg-[#121214]/80 border border-white/10 rounded-[2rem] md:rounded-[2.5rem] flex items-center justify-center relative group cursor-pointer overflow-hidden backdrop-blur-md`}
                         >
-                          <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/5 to-transparent opacity-50" />
-                          <Sparkles className="w-16 h-16 text-purple-400 stroke-[1.5]" />
+                          <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/10 via-transparent to-indigo-500/10 opacity-50 group-hover:opacity-100 transition-opacity" />
+
+                          {/* Inner Animated Sparkles */}
+                          <motion.div
+                            animate={{
+                              scale: [1, 1.15, 1.05, 1.15, 1],
+                              rotate: [0, 5, -5, 10, -10, 0],
+                              filter: [
+                                "drop-shadow(0 0 5px rgba(168, 85, 247, 0.3))",
+                                "drop-shadow(0 0 20px rgba(168, 85, 247, 0.7))",
+                                "drop-shadow(0 0 5px rgba(168, 85, 247, 0.3))"
+                              ]
+                            }}
+                            transition={{
+                              duration: 5,
+                              repeat: Infinity,
+                              ease: "easeInOut"
+                            }}
+                          >
+                            <Sparkles className="w-12 h-12 md:w-16 md:h-16 text-purple-400 stroke-[1.5]" />
+                          </motion.div>
+
+                          {/* Secondary Particle Accents */}
+                          <div className="absolute inset-0 pointer-events-none">
+                            <motion.div
+                              animate={{
+                                y: [-15, 15, -15],
+                                x: [-5, 5, -5],
+                                opacity: [0.3, 0.7, 0.3],
+                                scale: [1, 1.5, 1]
+                              }}
+                              transition={{ duration: 6, repeat: Infinity }}
+                              className="absolute top-6 left-6 w-1.5 h-1.5 bg-purple-400 rounded-full blur-[1px]"
+                            />
+                            <motion.div
+                              animate={{
+                                y: [15, -15, 15],
+                                x: [5, -5, 5],
+                                opacity: [0.2, 0.6, 0.2],
+                                scale: [0.8, 1.3, 0.8]
+                              }}
+                              transition={{ duration: 8, repeat: Infinity }}
+                              className="absolute bottom-8 right-10 w-2 h-2 bg-indigo-400 rounded-full blur-[1.5px]"
+                            />
+                          </div>
                         </motion.div>
 
-                        <div className="space-y-4">
-                          <h2 className="text-xl font-medium text-white/60">Hello, I'm</h2>
-                          <h1 className="text-7xl font-black tracking-tighter text-[#a78bfa]">
+                        <div className="space-y-2 md:space-y-4 px-6 md:px-0">
+                          <h2 className="text-lg md:text-xl font-medium text-white/60">Hello, I'm</h2>
+                          <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-[#a78bfa]">
                             Zara AI
                           </h1>
-                          <p className="text-2xl font-medium text-white">
+                          <p className="text-xl md:text-2xl font-medium text-white">
                             What would you like to do?
                           </p>
                         </div>
