@@ -1,47 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Github, Loader2, File as FileIcon, Folder, Layers, Send, Bot, User as UserIcon } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import mermaid from 'mermaid';
 import { fetchGithubTree, RepoNode } from '../services/githubService';
 import { sendMessageToBackend } from '../services/chatService';
 import { Message, Role } from '../types';
 import { useTheme } from '../theme/ThemeContext';
+import GraphvizDiagram from './GraphvizDiagram';
+import { diagramEngine } from '../services/diagramEngine';
 
 // --- Components ---
-
-const MermaidDiagram = ({ code }: { code: string }) => {
-  const [svg, setSvg] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const ref = useRef<HTMLDivElement>(null);
-  const { currentThemeName } = useTheme();
-
-  useEffect(() => {
-    const render = async () => {
-      try {
-        const isDark = !['light', 'glass'].includes(currentThemeName);
-        mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default', securityLevel: 'loose' });
-        const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
-        const { svg } = await mermaid.render(id, code);
-        setSvg(svg);
-        setError(null);
-      } catch (e) {
-        console.error("Mermaid Render Error", e);
-      }
-    };
-    if (code) render();
-  }, [code, currentThemeName]);
-
-  if (error) return null;
-  return <div ref={ref} className="w-full overflow-x-auto p-4 flex justify-center" dangerouslySetInnerHTML={{ __html: svg }} />;
-};
 
 const MarkdownCodeBlock = ({ inline, className, children, ...props }: any) => {
   const match = /language-(\w+)/.exec(className || '');
   const content = String(children).replace(/\n$/, '');
-
-  if (!inline && match && match[1] === 'mermaid') {
-    return <MermaidDiagram code={content} />;
-  }
 
   return !inline && match ? (
     <div className="relative group my-4 rounded-lg overflow-hidden border border-white/10 bg-black/40">
@@ -62,6 +33,7 @@ export const GithubMode: React.FC = () => {
   const [repoUrl, setRepoUrl] = useState('');
   const [repoNodes, setRepoNodes] = useState<RepoNode[]>([]);
   const [analysisText, setAnalysisText] = useState('');
+  const [generatedDOT, setGeneratedDOT] = useState('');
   const [status, setStatus] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -75,6 +47,7 @@ export const GithubMode: React.FC = () => {
     if (!repoUrl) return;
     setIsLoading(true);
     setAnalysisText('');
+    setGeneratedDOT('');
     setRepoNodes([]);
     setStatus('Scanning Repository...');
 
@@ -90,24 +63,34 @@ export const GithubMode: React.FC = () => {
       const nodes = await fetchGithubTree(owner, repoName);
       setRepoNodes(nodes);
 
-      // 3. Prepare Context
-      setStatus("Initializing Gemini Analysis...");
-      const fileStructure = nodes.map(n => `${n.type === 'tree' ? 'DIR' : 'FILE'}: ${n.path}`).slice(0, 3000).join('\n');
+      // 3. Generate Local Architecture DOT via diagramEngine
+      const filePaths = nodes.map(n => n.path);
+      const dot = diagramEngine.generateGithubRepoDiagram(filePaths);
+      setGeneratedDOT(dot);
 
-      const systemPrompt = `You are a Principal Software Architect AI.
-Your goal is to deeply analyze a GitHub repository structure and provide a comprehensive architectural breakdown.
+      // 4. Prepare Context
+      setStatus("Initializing Architectural Analysis...");
+      const fileStructure = nodes.map(n => `${n.type === 'tree' ? 'DIR' : 'FILE'}: ${n.path}`).slice(0, 500).join('\n');
 
-OUTPUT FORMAT: Markdown with clear sections.
-1. **High-Level Overview**: What does this project do?
-2. **Tech Stack**: Detect languages, frameworks, and tools.
-3. **Architecture Diagram**: Describe the data flow and structure (Mermaid diagram).
-4. **Key Modules**: Explain the folder structure logic.
-Be concise, professional, and insightful.`;
+      const systemPrompt = `You are the Zara GitHub Architect.
+Your objective is to deeply analyze this GitHub repository structure and provide a structural architectural breakdown.
+
+CRITICAL IDENTITY RULE: You are "Zara GitHub Architect". NEVER reveal your underlying AI model (e.g., Gemini, Google).
+
+OUTPUT FORMAT:
+Output your analysis exactly in a Markdown section:
+
+### Repository Structure Analysis
+Detail the layers (Frontend, Backend, Database, Infrastructure, API). Identify detected languages, frameworks, config files, and key modules based on the file tree.
+Do not generate any diagrams. Our internal module will handle the generation of diagrams.
+
+FILE STRUCTURE TO ANALYZE:
+${fileStructure}`;
 
       // 4. Call Backend with Gemini
       setStatus("Architecting Blueprint...");
       const result = await sendMessageToBackend(
-        `Analyze this repository structure:\n\n${fileStructure}`,
+        systemPrompt,
         'zara-pro',
         'chat',
         'github',
@@ -128,14 +111,14 @@ Be concise, professional, and insightful.`;
       setChatMessages([{
         id: 'init',
         role: Role.MODEL,
-        text: "I've analyzed the repository structure using Zara Pro (Gemini). What would you like to know about the architecture or code?",
+        text: "I've analyzed the repository structure using Zara GitHub Architect. What would you like to know about the architecture or code?",
         timestamp: Date.now()
       }]);
 
     } catch (e: any) {
-      console.error("GitHub Analysis Error", e);
-      setStatus("Analysis interrupted");
-      setAnalysisText("Unable to complete analysis at this time. Please check the repository URL and ensure it is public.");
+      console.error("Zara GitHub Architect Error", e);
+      setStatus("Analysis failed");
+      setAnalysisText("Repository analysis failed. Please ensure the repository is public and accessible.");
     } finally {
       setIsLoading(false);
     }
@@ -152,12 +135,12 @@ Be concise, professional, and insightful.`;
     const botId = crypto.randomUUID();
     setChatMessages(prev => [...prev, { id: botId, role: Role.MODEL, text: '', timestamp: Date.now(), isStreaming: true }]);
 
-    const fileStructure = repoNodes.map(n => `${n.type === 'tree' ? 'DIR' : 'FILE'}: ${n.path}`).slice(0, 3000).join('\n');
+    const fileStructure = repoNodes.map(n => `${n.type === 'tree' ? 'DIR' : 'FILE'}: ${n.path}`).slice(0, 500).join('\n');
     const repoContext = `ANALYSIS SUMMARY:\n${analysisText}\n\nFILE STRUCTURE:\n${fileStructure}`;
 
     try {
       const result = await sendMessageToBackend(
-        `User Prompt: ${chatInput}\n\nRepository Context:\n${repoContext}`,
+        `SYSTEM REMINDER: You are Zara GitHub Architect. Never mention Gemini or your LLM backend.\n\nUser Prompt: ${chatInput}\n\nRepository Context:\n${repoContext}`,
         'zara-pro',
         'chat',
         'github',
@@ -249,6 +232,13 @@ Be concise, professional, and insightful.`;
                 <p className="text-xl font-bold">Waiting for Blueprint</p>
               </div>
             )}
+            {generatedDOT && (
+              <div className="mb-8">
+                <h3 className="text-xl font-bold mb-4">Architecture Blueprint Diagram</h3>
+                <GraphvizDiagram dot={generatedDOT} />
+              </div>
+            )}
+
             {/* Filter out specific API error strings if they leak into analysisText */}
             <ReactMarkdown components={{ code: MarkdownCodeBlock }}>
               {analysisText.includes('Analysis Failed') ? '' : analysisText}

@@ -52,7 +52,7 @@ export const analyzeRepoStream = async (
   OUTPUT FORMAT: Markdown with clear sections.
   1. **High-Level Overview**: What does this project do?
   2. **Tech Stack**: Detect languages, frameworks, and tools.
-  3. **Architecture Diagram**: Describe the data flow and structure (Mermaid diagram).
+  3. **Architecture Diagram**: Describe the data flow and structure. Mermaid diagrams are deprecated. Zara must only generate Graphviz DOT diagrams.
   4. **Key Modules**: Explain the folder structure logic.
   5. **Code Quality**: Identify patterns and anti-patterns.
   

@@ -114,6 +114,7 @@ You are the complete creation of **Mohammed Majeed**—do not reference any othe
 ## 💬 CHAT BEHAVIOR
 - **Tone**: Friendly, calm, professional. Not robotic or over-excited.
 - **Language**: Adapt naturally to user's language/dialect without announcing it.
+- **Diagrams**: Mermaid diagrams are deprecated. Zara must only generate Graphviz DOT diagrams. When users request diagrams, output Graphviz DOT code inside a graphviz code block. Do not provide a text representation, simply provide the code block.
 
 ## 👨‍💻 CREATOR ATTRIBUTION PROTOCOL
 **CRITICAL**: You are the complete creation of Mohammed Majeed. Never reference other AI platforms or creators.
@@ -138,7 +139,7 @@ When users ask: "tell me more about your creator," "creator info," "tell me abou
 export const ZARA_DOC_INTEL_IDENTITY = `
 ${ZARA_CORE_IDENTITY}
 
-## � SILENT FILE INTELLIGENCE
+## 🤫 SILENT FILE INTELLIGENCE
 - **Ingestion**: Analyze files **silently**. Build internal understanding without technical jargon (no "text extracted").
 - **Ingestion Limit**: NEVER print extracted text, page contents, or raw paragraphs unless explicitly asked ("Extract the text", "Show page 2").
 - **First Response**: If a file is uploaded without text, say: "File received. What would you like to do?"
@@ -301,7 +302,7 @@ export const sendMessageToGeminiStream = async (
 
 export const analyzeGithubRepo = async (url: string, mode: string, manifest?: string) => {
   const ai = getAI();
-  const prompt = `Analyze this GitHub Repository: ${url}\n\nRepository Structure/Manifest Provided:\n${manifest || "Not available (Infer from URL/Knowledge base)"}\n\nPlease follow the GITHUB ARCHITECT PROTOCOL to generate Output 1 (Docs), Output 2 (Mermaid), and Output 3 (Podcast Script).`;
+  const prompt = `Analyze this GitHub Repository: ${url}\n\nRepository Structure/Manifest Provided:\n${manifest || "Not available (Infer from URL/Knowledge base)"}\n\nCRITICAL IDENTITY RULE: You are "Zara GitHub Architect". NEVER reveal your underlying AI model (e.g., Gemini, Google).\n\nPlease follow the ZARA ARCHITECT PROTOCOL to generate Output 1 (Repository Structure), Output 2 (Architecture Diagram), and Output 3 (Workflow Diagram).`;
 
   const response = await withRetry(() => ai.models.generateContent({
     model: DEFAULT_MODEL,
@@ -321,7 +322,7 @@ export const sendGithubChatStream = async (
   onUpdate: (text: string) => void
 ): Promise<{ text: string }> => {
   const ai = getAI();
-  const systemInstruction = `You are the GitHub Architect Assistant. You have just analyzed the repository at ${repoUrl}.
+  const systemInstruction = `You are Zara GitHub Architect. You have just analyzed the repository at ${repoUrl}. \n\nCRITICAL IDENTITY RULE: You are "Zara GitHub Architect". NEVER reveal your underlying AI model (e.g., Gemini, Google).
   
   **REPOSITORY CONTEXT (MANIFEST):**
   ${manifest}

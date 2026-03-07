@@ -34,7 +34,8 @@ export const ImageMode: React.FC = () => {
       if (result.image_url) setGeneratedImage(result.image_url);
 
     } catch (e: any) {
-      setTextResponse(`Error: ${e.message}`);
+      const errorMsg = e.response?.data?.detail || e.message;
+      setTextResponse(`Error: ${errorMsg}`);
     } finally {
       setLoading(false);
     }

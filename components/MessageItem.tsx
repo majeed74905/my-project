@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { Role, Message } from '../types';
 import { Bot, User, FileText, ExternalLink, Volume2, Square, Copy, Check, Pencil, Download, WifiOff, Workflow, FileDown, AlertTriangle, Loader2, Play, ThumbsUp, ThumbsDown, RefreshCw, Share2, MoreHorizontal, GitBranch, Share, Heart, Bookmark, Flag } from 'lucide-react';
 import { DiagramSystem } from './DiagramSystem';
+import GraphvizDiagram from './GraphvizDiagram';
 
 interface MessageItemProps {
   message: Message;
@@ -38,11 +39,22 @@ const CodeBlock = ({ inline, className, children, ...props }: any) => {
       }
     }
 
+    if (match[1] === 'graphviz' || match[1] === 'dot') {
+      return <GraphvizDiagram dot={String(children)} />;
+    }
+
     if (match[1] === 'mermaid') {
       // Fallback or legacy support if AI still outputs mermaid for a moment
       return (
-        <div className="p-4 bg-orange-500/5 border border-orange-500/20 rounded-xl text-xs text-orange-500">
-          Mermaid visualization is deprecated. Please ask for a "Graphviz diagram".
+        <div className="relative group my-4 rounded-lg overflow-hidden border border-white/10 bg-[#1e1e1e] animate-scale-in">
+          <div className="p-4 bg-orange-500/5 border-b border-orange-500/20 text-xs text-orange-500">
+            Mermaid visualization is deprecated. Please ask the AI to generate a "Graphviz DOT diagram" instead.
+          </div>
+          <pre className="!m-0 !p-4 !bg-transparent overflow-x-auto text-gray-400">
+            <code className={className} {...props}>
+              {children}
+            </code>
+          </pre>
         </div>
       );
     }
