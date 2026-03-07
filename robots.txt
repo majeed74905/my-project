@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://zara-ai-assists.netlify.app/sitemap.xml

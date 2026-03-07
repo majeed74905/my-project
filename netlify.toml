@@ -1,4 +1,9 @@
 [[redirects]]
+  from = "/index.html"
+  to = "/"
+  status = 301
+
+[[redirects]]
   from = "/sitemap.xml"
   to = "/sitemap.xml"
   status = 200
